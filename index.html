@@ -43,13 +43,19 @@
     backdrop-filter: blur(20px);
     border-bottom: 1px solid rgba(16,185,129,0.2);
     padding: 0 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .top-row {
     height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    width: 100%;
   }
 
   .logo {
@@ -71,10 +77,17 @@
     margin-top: -4px;
   }
 
-  .topbar-actions {
+  .desktop-actions {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+  }
+
+  .mobile-actions-row {
+    display: none;
+    padding-bottom: 0.75rem;
+    gap: 0.5rem;
+    width: 100%;
   }
 
   .zoom-control {
@@ -141,11 +154,23 @@
     background: var(--slate-800);
     border-bottom: 1px solid rgba(255,255,255,0.06);
     padding: 0.75rem 2rem;
+  }
+
+  .tpl-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .tpl-selector-group {
     display: flex;
     align-items: center;
     gap: 1rem;
-    flex-wrap: wrap;
   }
+
+  .mobile-only { display: none !important; }
 
   .template-label {
     font-size: 0.75rem;
@@ -1142,51 +1167,78 @@
   @media (max-width: 900px) {
     .main-layout {
       grid-template-columns: 1fr;
+      height: calc(100vh - 200px);
+      overflow: hidden;
+    }
+
+    .topbar { padding: 0.5rem 1rem; }
+    
+    .top-row {
       height: auto;
-      overflow: visible;
+      padding: 0.75rem 0;
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .logo { 
+      font-size: 1.15rem; 
+      line-height: 1.2;
+      margin-bottom: 0.25rem;
+    }
+    
+    .logo span { font-size: 0.6rem; margin-top: 2px; }
+
+    .desktop-actions { display: none; }
+    .mobile-actions-row { 
+      display: flex; 
+      justify-content: center; 
+      gap: 0.5rem; 
+      padding: 0.5rem 0;
+    }
+
+    .tpl-row { 
+      flex-direction: column; 
+      align-items: center; 
+      gap: 0.75rem; 
+      padding: 0.5rem 0;
+    }
+    .template-bar { padding: 0.5rem 1rem; }
+
+    .desktop-only { display: none !important; }
+    .mobile-only { display: block !important; }
+
+    #tpl-select-mobile {
+      background: var(--slate-700);
+      border: 1px solid var(--accent);
+      color: white;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      width: 150px;
     }
 
     .preview-panel {
-      min-height: 500px;
+      min-height: auto;
+      height: 100%;
       padding: 1rem;
-      overflow-x: auto;
-      align-items: flex-start;
-      justify-content: flex-start;
     }
 
     #resume-canvas {
-      width: 794px; /* Keep fixed width but let container scroll */
-      transform: scale(0.45);
-      transform-origin: top left;
-      margin-bottom: -550px; /* Offset the scale gap */
-    }
-
-    .view-toggle {
-      display: flex !important;
-      position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      z-index: 1000;
-      background: var(--accent);
-      color: white;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      cursor: pointer;
+      width: 794px;
+      transform: scale(0.42);
+      transform-origin: top center;
+      margin: 0 auto -620px;
     }
 
     .form-panel.mobile-hidden { display: none !important; }
     .preview-panel.mobile-hidden { display: none !important; }
-    .preview-panel:not(.mobile-hidden) { display: flex !important; }
-
-    .topbar { padding: 0 1rem; }
-    .topbar-actions .btn span { display: none; }
-    .logo { font-size: 1.1rem; }
-    .zoom-control { display: none; }
+    .preview-panel:not(.mobile-hidden) { display: flex !important; flex-direction: column; }
+    
+    .view-toggle { display: none; }
   }
+
+  .main-layout.reversed { direction: rtl; }
+  .main-layout.reversed > * { direction: ltr; }
 
   .view-toggle { display: none; }
 
@@ -1228,38 +1280,66 @@
 
 <!-- TOPBAR -->
 <div class="topbar">
-  <div class="logo">
-    AKafiq Resume Engine
-    <span>ENGINEERED BY AKAFIQ</span>
-  </div>
-  <div class="topbar-actions">
-    <div class="zoom-control">
-      <span style="font-size:0.7rem; color:var(--slate-400)">Zoom</span>
-      <input type="range" min="0.5" max="1.5" step="0.1" value="1" oninput="adjustZoom(this.value)" style="width:80px">
+  <div class="top-row">
+    <div class="logo">
+      AKafiq Resume Engine
+      <span>ENGINEERED BY AKAFIQ</span>
     </div>
-    <button class="btn btn-ghost" onclick="saveToLocalStorage()">💾 <span>Save</span></button>
-    <button class="btn btn-ghost" onclick="window.print()">🖨️ <span>Print</span></button>
-    <button class="btn btn-ghost" onclick="clearData()">🗑️ <span>Clear</span></button>
-    <button class="btn btn-primary" onclick="exportPDF()">⬇ Export PDF</button>
+    
+    <div class="desktop-actions">
+      <div class="zoom-control">
+        <span style="font-size:0.7rem; color:var(--slate-400)">Zoom</span>
+        <input type="range" min="0.5" max="1.5" step="0.1" value="1" oninput="adjustZoom(this.value)" style="width:80px">
+      </div>
+      <button class="btn btn-ghost" onclick="saveToLocalStorage()">💾 <span>Save</span></button>
+      <button class="btn btn-ghost" onclick="window.print()">🖨️ <span>Print</span></button>
+      <button class="btn btn-ghost" onclick="clearData()">🗑️ <span>Clear</span></button>
+      <button class="btn btn-primary" onclick="exportPDF()">⬇ Export PDF</button>
+      <button class="btn btn-ghost" id="layoutSwitcher" onclick="toggleLayoutMode()" title="Switch Layout">🔄 <span>Switch</span></button>
+    </div>
+  </div>
+
+  <div class="mobile-actions-row">
+    <button class="btn btn-ghost" onclick="saveToLocalStorage()">💾</button>
+    <button class="btn btn-ghost" onclick="window.print()">🖨️</button>
+    <button class="btn btn-ghost" onclick="clearData()">🗑️</button>
+    <button class="btn btn-primary" style="flex:1" onclick="exportPDF()">⬇ Export PDF</button>
+    <button class="btn btn-ghost" onclick="toggleLayoutMode()">🔄</button>
   </div>
 </div>
 
 <!-- TEMPLATE BAR -->
 <div class="template-bar">
-  <span class="template-label">Template:</span>
-  <div class="template-options">
-    <button class="tpl-btn active" onclick="switchTemplate('creative', this)">✨ Creative</button>
-    <button class="tpl-btn" onclick="switchTemplate('minimalist', this)">◻ Minimalist</button>
-    <button class="tpl-btn" onclick="switchTemplate('executive', this)">💼 Executive</button>
-    <button class="tpl-btn" onclick="switchTemplate('luxe', this)">💎 Luxe</button>
-    <button class="tpl-btn" onclick="switchTemplate('custom', this)">🎨 Custom</button>
-    <button class="tpl-btn" onclick="switchTemplate('ats', this)">🤖 ATS</button>
+  <div class="tpl-row">
+    <div class="tpl-selector-group">
+      <span class="template-label">Template:</span>
+      <!-- Desktop Buttons -->
+      <div class="template-options desktop-only">
+        <button class="tpl-btn active" data-tpl="creative" onclick="switchTemplate('creative', this)">✨ Creative</button>
+        <button class="tpl-btn" data-tpl="minimalist" onclick="switchTemplate('minimalist', this)">◻ Minimalist</button>
+        <button class="tpl-btn" data-tpl="executive" onclick="switchTemplate('executive', this)">💼 Executive</button>
+        <button class="tpl-btn" data-tpl="luxe" onclick="switchTemplate('luxe', this)">💎 Luxe</button>
+        <button class="tpl-btn" data-tpl="custom" onclick="switchTemplate('custom', this)">🎨 Custom</button>
+        <button class="tpl-btn" data-tpl="ats" onclick="switchTemplate('ats', this)">🤖 ATS</button>
+      </div>
+      <!-- Mobile Select -->
+      <select id="tpl-select-mobile" class="mobile-only" onchange="switchTemplate(this.value)">
+        <option value="creative">✨ Creative</option>
+        <option value="minimalist">◻ Minimalist</option>
+        <option value="executive">💼 Executive</option>
+        <option value="luxe">💎 Luxe</option>
+        <option value="custom">🎨 Custom</option>
+        <option value="ats">🤖 ATS</option>
+      </select>
+    </div>
+
+    <div class="color-customizer" id="color-ctrl">
+      <span class="template-label">Theme:</span>
+      <input type="color" id="accent-picker" value="#10b981" oninput="updateTheme(this.value)">
+    </div>
   </div>
-  <div class="color-customizer" id="color-ctrl">
-    <span class="template-label">Theme:</span>
-    <input type="color" id="accent-picker" value="#10b981" oninput="updateTheme(this.value)">
-  </div>
-  <div id="ats-notice" style="display:none; margin-left:auto; font-size:0.75rem; color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.2); padding:0.25rem 0.75rem; border-radius:6px;">
+
+  <div id="ats-notice" style="display:none; width:100%; margin-top:0.5rem; font-size:0.75rem; color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.2); padding:0.25rem 0.75rem; border-radius:6px;">
     ⚠ ATS Mode: Photo & Charts hidden for machine readability
   </div>
 </div>
@@ -1455,11 +1535,11 @@
         <div class="section-title">Custom Layout Designer</div>
         <div class="section-chevron" id="chev-custom-meta">›</div>
       </div>
-      <div class="section-body" id="body-custom-meta">
+      <div class="section-body" id="sec-custom-meta">
         <div class="field-row">
           <div class="field-group">
             <label>Sidebar Side</label>
-            <select id="f-custom-side" oninput="updatePreview()">
+            <select id="f-custom-side" onchange="updatePreview()">
               <option value="right">Right Sidebar</option>
               <option value="left">Left Sidebar</option>
             </select>
@@ -1471,7 +1551,7 @@
         </div>
         <div class="field-group">
           <label>Layout Spacing</label>
-          <select id="f-custom-padding" oninput="updatePreview()">
+          <select id="f-custom-padding" onchange="updatePreview()">
             <option value="3.5rem">Relaxed (3.5rem)</option>
             <option value="2.5rem">Balanced (2.5rem)</option>
             <option value="1.5rem">Compact (1.5rem)</option>
@@ -1612,35 +1692,45 @@ function handlePhoto(input) {
 // ============================================================
 function switchTemplate(tpl, btn) {
   state.template = tpl;
-  document.querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  
   const isATS = tpl === 'ats';
-  document.getElementById('ats-notice').style.display = isATS ? 'block' : 'none';
-  document.getElementById('color-ctrl').style.display = isATS ? 'none' : 'flex';
+
+  // Sync Desktop Buttons
+  document.querySelectorAll('.tpl-btn').forEach(b => {
+    b.classList.remove('active');
+    if (b.getAttribute('data-tpl') === tpl) b.classList.add('active');
+  });
+
+  // Sync Mobile Select
+  const mSelect = document.getElementById('tpl-select-mobile');
+  if (mSelect) mSelect.value = tpl;
+
+  const notice = document.getElementById('ats-notice');
+  if (notice) notice.style.display = isATS ? 'block' : 'none';
   
-  // Custom meta designer visibility
+  document.getElementById('color-ctrl').style.display = isATS ? 'none' : 'flex';
   document.getElementById('custom-meta-section').style.display = tpl === 'custom' ? 'block' : 'none';
   
   updatePreview();
 }
 
-let mobileView = 'edit'; // 'edit' or 'preview'
-function toggleMobileMode() {
-  const form = document.querySelector('.form-panel');
-  const preview = document.querySelector('.preview-panel');
-  const btn = document.getElementById('mobileSwitcher');
-  
-  if (mobileView === 'edit') {
-    mobileView = 'preview';
-    form.classList.add('mobile-hidden');
-    preview.classList.remove('mobile-hidden');
-    btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+let mobileView = 'edit';
+function toggleLayoutMode() {
+  const isMobile = window.innerWidth <= 900;
+  if (isMobile) {
+    const form = document.getElementById('formPanel');
+    const preview = document.querySelector('.preview-panel');
+    if (mobileView === 'edit') {
+      mobileView = 'preview';
+      form.classList.add('mobile-hidden');
+      preview.classList.remove('mobile-hidden');
+    } else {
+      mobileView = 'edit';
+      form.classList.remove('mobile-hidden');
+      preview.classList.add('mobile-hidden');
+    }
   } else {
-    mobileView = 'edit';
-    form.classList.remove('mobile-hidden');
-    preview.classList.add('mobile-hidden');
-    btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    // Desktop: Toggle Side
+    document.querySelector('.main-layout').classList.toggle('reversed');
   }
 }
 
