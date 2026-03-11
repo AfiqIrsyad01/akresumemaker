@@ -101,22 +101,18 @@ Visible across **all templates** now:
 
 ---
 
-## � Getting Started
-
-```
+## 🚀 Getting Started
+Markdown
 1. Download resume-builder.html
 2. Open with Chrome, Edge, or Safari
 3. Fill data & hit "Export PDF"
-```
 
 ---
 
-## � Tech Stack
-- **Library**: Chart.js 4.4+, html2canvas 1.4+, jsPDF 2.5+.
-- **Fonts**: DM Sans, Playfair Display, JetBrains Mono (via Google CDN).
-- **Logic**: Vanilla ES6+ JavaScript.
-
----
+## 🛠️ Tech Stack
+Library: Chart.js 4.4+, html2canvas 1.4+, jsPDF 2.5+.
+Fonts: DM Sans, Playfair Display, JetBrains Mono (via Google CDN).
+Logic: Vanilla ES6+ JavaScript.
 
 ## 📄 License
 ```
