@@ -102,7 +102,6 @@ Visible across **all templates** now:
 ---
 
 ## 🚀 Getting Started
-Markdown
 1. Download resume-builder.html
 2. Open with Chrome, Edge, or Safari
 3. Fill data & hit "Export PDF"
