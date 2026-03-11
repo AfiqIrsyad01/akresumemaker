@@ -1,0 +1,2884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AKafiq Resume Engine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --slate-900: #0f172a;
+    --slate-800: #1e293b;
+    --slate-700: #334155;
+    --slate-600: #475569;
+    --slate-400: #94a3b8;
+    --slate-200: #e2e8f0;
+    --slate-100: #f1f5f9;
+    --white: #ffffff;
+    --accent: #10b981;
+    --accent-light: rgba(16,185,129,0.15);
+    --emerald-500: var(--accent);
+    --emerald-400: #34d399;
+    --emerald-300: #6ee7b7;
+    --emerald-600: #059669;
+    --amber-400: #fbbf24;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--slate-900);
+    color: var(--slate-200);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar {
+    background: rgba(15,23,42,0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(16,185,129,0.2);
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    background: linear-gradient(135deg, var(--emerald-400), var(--emerald-300));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.02em;
+  }
+
+  .logo span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    background: none;
+    -webkit-text-fill-color: var(--slate-400);
+    letter-spacing: 0.1em;
+    display: block;
+    margin-top: -4px;
+  }
+
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .zoom-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 1rem;
+    padding-right: 1rem;
+    border-right: 1px solid rgba(255,255,255,0.1);
+  }
+
+  @media print {
+    #resume-canvas { 
+      box-shadow: none !important; 
+      border-radius: 0 !important; 
+      margin: 0 auto !important; 
+      width: 794px !important; 
+      transform: none !important; 
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+    .main-layout { display: block !important; padding: 0 !important; }
+    .preview-panel { display: block !important; padding: 0 !important; background: white !important; }
+    .form-panel, .topbar, .template-bar, .toast, .export-overlay, .view-toggle { display: none !important; }
+  }
+
+  .btn {
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--emerald-600), var(--emerald-500));
+    color: white;
+    box-shadow: 0 4px 15px rgba(16,185,129,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(16,185,129,0.4); }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.05);
+    color: var(--slate-200);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.1); }
+
+  .btn-danger {
+    background: rgba(239,68,68,0.1);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,0.2);
+  }
+  .btn-danger:hover { background: rgba(239,68,68,0.2); }
+
+  /* ===== TEMPLATE SELECTOR ===== */
+  .template-bar {
+    background: var(--slate-800);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 0.75rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .template-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--slate-400);
+  }
+
+  .template-options {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .tpl-btn {
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--slate-400);
+  }
+
+  .tpl-btn:hover { color: var(--accent); border-color: rgba(16,185,129,0.3); }
+
+  .tpl-btn.active {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .color-customizer {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  #accent-picker {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+  }
+  #accent-picker::-webkit-color-swatch { border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); }
+
+  /* ===== MAIN LAYOUT ===== */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 440px 1fr;
+    height: calc(100vh - 113px);
+    overflow: hidden;
+  }
+
+  /* ===== FORM PANEL ===== */
+  .form-panel {
+    background: var(--slate-800);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .form-panel::-webkit-scrollbar { width: 4px; }
+  .form-panel::-webkit-scrollbar-track { background: transparent; }
+  .form-panel::-webkit-scrollbar-thumb { background: var(--slate-700); border-radius: 2px; }
+
+  .form-section {
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .section-header {
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+  }
+
+  .section-header:hover { background: rgba(255,255,255,0.03); }
+
+  .section-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(16,185,129,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  .section-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--slate-200);
+    flex: 1;
+  }
+
+  .section-chevron {
+    color: var(--slate-400);
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+  }
+
+  .section-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--slate-600);
+    margin-right: 4px;
+    display: inline-block;
+  }
+  .section-indicator.active { background: var(--emerald-500); box-shadow: 0 0 8px var(--emerald-500); }
+
+  .section-chevron.open { transform: rotate(90deg); }
+
+  .section-body {
+    padding: 0 1.5rem 1.5rem;
+    display: none;
+  }
+
+  .section-body.open { display: block; }
+
+  /* ===== FORM FIELDS ===== */
+  .field-group { margin-bottom: 1rem; }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--slate-400);
+    margin-bottom: 0.4rem;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    color: var(--slate-200);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    transition: border-color 0.2s, background 0.2s;
+    outline: none;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--emerald-500);
+    background: rgba(16,185,129,0.05);
+  }
+
+  select option { background: var(--slate-800); color: var(--slate-200); }
+
+  textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+  /* ===== PHOTO UPLOAD ===== */
+  .photo-upload-area {
+    border: 2px dashed rgba(16,185,129,0.3);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .photo-upload-area:hover {
+    border-color: var(--emerald-500);
+    background: rgba(16,185,129,0.05);
+  }
+
+  .photo-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--emerald-500);
+    display: none;
+    margin: 0 auto 0.5rem;
+  }
+
+  .photo-placeholder {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: var(--slate-400);
+  }
+
+  .photo-hint {
+    font-size: 0.78rem;
+    color: var(--slate-400);
+  }
+
+  /* ===== SKILLS SLIDER ===== */
+  .skill-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .skill-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  .skill-name-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.85rem;
+    width: 150px;
+  }
+
+  .skill-pct {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--emerald-400);
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 36px;
+    text-align: right;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--slate-700);
+    padding: 0;
+    border: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--emerald-500);
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(16,185,129,0.5);
+  }
+
+  input[type="range"]:focus { background: var(--slate-600); }
+
+  /* ===== DYNAMIC CARDS ===== */
+  .dynamic-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    position: relative;
+  }
+
+  .card-remove {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: rgba(239,68,68,0.1);
+    border: none;
+    color: #f87171;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .card-remove:hover { background: rgba(239,68,68,0.25); }
+
+  .add-btn {
+    width: 100%;
+    padding: 0.6rem;
+    background: rgba(16,185,129,0.08);
+    border: 1px dashed rgba(16,185,129,0.3);
+    border-radius: 8px;
+    color: var(--emerald-400);
+    cursor: pointer;
+    font-size: 0.83rem;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .add-btn:hover {
+    background: rgba(16,185,129,0.15);
+    border-style: solid;
+  }
+
+  /* ===== CHECKBOXES ===== */
+  .checkbox-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .check-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 0.3rem 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.82rem;
+    user-select: none;
+  }
+
+  .check-pill input { display: none; }
+
+  .check-pill.checked {
+    background: rgba(16,185,129,0.15);
+    border-color: rgba(16,185,129,0.4);
+    color: var(--emerald-400);
+  }
+
+  /* ===== PREVIEW PANEL ===== */
+  .preview-panel {
+    background: #cbd5e1;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .preview-panel::-webkit-scrollbar { width: 6px; }
+  .preview-panel::-webkit-scrollbar-track { background: #94a3b8; }
+  .preview-panel::-webkit-scrollbar-thumb { background: #64748b; border-radius: 3px; }
+
+  /* ===== A4 RESUME CANVAS ===== */
+  #resume-canvas {
+    width: 794px;
+    min-height: 1123px;
+    background: white;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: all 0.4s ease;
+    flex-shrink: 0;
+  }
+
+  /* ========================================
+     TEMPLATE: CREATIVE/MODERN
+     ======================================== */
+  #resume-canvas.tpl-creative {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .cv-sidebar {
+    background: linear-gradient(160deg, #0f172a 0%, #1e293b 50%, #0f2a1f 100%);
+    color: white;
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .cv-photo-wrap {
+    text-align: center;
+  }
+
+  .cv-photo {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #10b981;
+    box-shadow: 0 0 0 6px rgba(16,185,129,0.15);
+    margin: 0 auto;
+    display: block;
+  }
+
+  .cv-photo-placeholder {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: rgba(16,185,129,0.2);
+    border: 3px solid rgba(16,185,129,0.4);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: rgba(255,255,255,0.4);
+  }
+
+  .cv-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    text-align: center;
+    margin-top: 0.75rem;
+    line-height: 1.2;
+  }
+
+  .cv-role {
+    text-align: center;
+    font-size: 0.78rem;
+    color: #34d399;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-top: 0.25rem;
+  }
+
+  .cv-sidebar-section {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 1rem;
+  }
+
+  .cv-sidebar-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #10b981;
+    margin-bottom: 0.75rem;
+  }
+
+  .cv-contact-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.75);
+    word-break: break-word;
+  }
+
+  .cv-contact-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: #10b981;
+  }
+
+  .cv-skill-bar {
+    margin-bottom: 0.6rem;
+  }
+
+  .cv-skill-label {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 0.25rem;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .cv-skill-track {
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .cv-skill-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    border-radius: 2px;
+    transition: width 0.8s ease;
+  }
+
+  .cv-lang-pill {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(16,185,129,0.2);
+    border: 1px solid rgba(16,185,129,0.4);
+    color: #6ee7b7;
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    margin: 0.15rem;
+    font-weight: 600;
+  }
+
+  .cv-main {
+    padding: 2rem 2rem 2rem 1.75rem;
+    background: white;
+    color: #1e293b;
+    overflow: hidden;
+  }
+
+  .cv-main-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .cv-main-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #10b981;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .cv-main-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(16,185,129,0.4), transparent);
+  }
+
+  .cv-timeline-item {
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+    border-left: 2px solid rgba(16,185,129,0.3);
+    position: relative;
+  }
+
+  .cv-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 5px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+  }
+
+  .cv-item-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.3;
+  }
+
+  .cv-item-sub {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 0.15rem;
+  }
+
+  .cv-item-body {
+    font-size: 0.78rem;
+    color: #475569;
+    margin-top: 0.4rem;
+    line-height: 1.5;
+  }
+
+  .cv-badge {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.2);
+    color: #059669;
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-left: 0.4rem;
+  }
+
+  .cv-radar-wrap {
+    position: relative;
+    height: 160px;
+  }
+
+  .cv-tools-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .cv-tool-tag {
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.2);
+    color: #059669;
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+  }
+
+  .cv-ref-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .cv-ref-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .cv-ref-name { font-size: 0.82rem; font-weight: 600; color: #0f172a; }
+  .cv-ref-pos { font-size: 0.72rem; color: #64748b; }
+  .cv-ref-tel { font-size: 0.72rem; color: #10b981; margin-top: 0.2rem; }
+
+  /* Removed Resume Footers */
+
+  /* ========================================
+     TEMPLATE: MINIMALIST
+     ======================================== */
+  #resume-canvas.tpl-minimalist {
+    font-family: 'DM Sans', sans-serif;
+    color: #1e293b;
+    padding: 3.5rem 3.5rem 2.5rem;
+  }
+
+  .min-header {
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .min-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .min-role {
+    font-size: 1rem;
+    color: #64748b;
+    font-weight: 400;
+    margin-top: 0.35rem;
+  }
+
+  .min-contacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .min-contact-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: #475569;
+  }
+
+  .min-section {
+    margin-bottom: 1.75rem;
+  }
+
+  .min-section-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0f172a;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.35rem;
+    margin-bottom: 1rem;
+  }
+
+  .min-exp-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .min-exp-title { font-size: 0.9rem; font-weight: 600; color: #0f172a; }
+  .min-exp-sub { font-size: 0.8rem; color: #64748b; margin-top: 0.15rem; }
+  .min-exp-date { font-size: 0.75rem; color: #94a3b8; white-space: nowrap; font-family: 'JetBrains Mono', monospace; }
+  .min-exp-body { font-size: 0.8rem; color: #475569; line-height: 1.6; margin-top: 0.5rem; grid-column: 1 / -1; }
+
+  .min-skills-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .min-skill-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .min-skill-name { font-size: 0.78rem; color: #334155; font-weight: 500; }
+
+  .min-skill-bar-track {
+    height: 3px;
+    background: #e2e8f0;
+    border-radius: 1.5px;
+  }
+
+  .min-skill-bar-fill {
+    height: 100%;
+    background: #0f172a;
+    border-radius: 1.5px;
+  }
+
+  .min-footer {
+    border-top: 1px solid #e2e8f0;
+    margin-top: 2rem;
+    padding-top: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .min-footer-text { font-size: 0.68rem; color: #94a3b8; }
+  .min-footer-em { font-size: 0.68rem; color: #0f172a; font-weight: 600; }
+
+  /* ========================================
+     TEMPLATE: ATS
+     ======================================== */
+  #resume-canvas.tpl-ats {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+    padding: 2.5rem;
+    background: white;
+  }
+
+  .ats-name {
+    font-size: 18pt;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+
+  .ats-role { font-size: 11pt; text-align: center; margin-bottom: 4px; }
+
+  .ats-contacts {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 9.5pt;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #000;
+  }
+
+  .ats-section-title {
+    font-size: 11pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #000;
+    margin-bottom: 0.4rem;
+    margin-top: 0.9rem;
+    padding-bottom: 2px;
+  }
+
+  .ats-item-title { font-size: 10pt; font-weight: bold; margin-top: 0.4rem; }
+  .ats-item-sub { font-size: 9.5pt; color: #333; }
+  .ats-item-body { font-size: 9.5pt; color: #111; margin-top: 0.2rem; line-height: 1.5; }
+
+  .ats-skill-list { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; }
+  .ats-skill-text { font-size: 9.5pt; }
+
+  .ats-ref-item { margin-bottom: 0.5rem; }
+
+  .ats-footer {
+    margin-top: 2rem;
+    border-top: 1px solid #999;
+    padding-top: 0.4rem;
+    font-size: 8pt;
+    color: #555;
+    text-align: center;
+  }
+
+  /* ========================================
+     TEMPLATE: EXECUTIVE
+     ======================================== */
+  #resume-canvas.tpl-executive {
+    font-family: 'DM Sans', sans-serif;
+    color: #1e293b;
+    padding: 0;
+    position: relative;
+    background: white;
+  }
+
+  .exec-container { padding: 3rem; }
+
+  .exec-accent-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 12px;
+    background: linear-gradient(90deg, #0f172a, #334155);
+  }
+
+  .exec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 1.5rem;
+  }
+
+  .exec-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1;
+  }
+
+  .exec-role {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #64748b;
+    margin-top: 0.5rem;
+    font-weight: 500;
+  }
+
+  .exec-header-right { text-align: right; }
+  
+  .exec-contact-item {
+    font-size: 0.8rem;
+    color: #475569;
+    margin-bottom: 2px;
+  }
+
+  .exec-content-grid {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr;
+    gap: 2.5rem;
+  }
+
+  .exec-section { margin-bottom: 1.75rem; }
+
+  .exec-section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #0f172a;
+    border-left: 4px solid #0f172a;
+    padding-left: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .exec-sidebar-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .exec-sidebar-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+  }
+
+  .exec-summary-text {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: #334155;
+    text-align: justify;
+  }
+
+  .exec-item { margin-bottom: 1.25rem; }
+
+  .exec-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 2px;
+  }
+
+  .exec-item-title { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
+  .exec-item-date { font-size: 0.8rem; color: #64748b; font-weight: 500; }
+  .exec-item-sub { font-size: 0.82rem; color: #0f172a; font-style: italic; margin-bottom: 6px; }
+  .exec-item-body { font-size: 0.85rem; color: #475569; line-height: 1.6; white-space: pre-wrap; }
+
+  .exec-pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  
+  .exec-pill {
+    background: #0f172a;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .exec-pill-alt { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+  .exec-ref-grid { display: grid; gap: 12px; }
+  .exec-ref-card { padding: 10px; border: 1px solid #e2e8f0; border-radius: 4px; }
+
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--slate-800);
+    border: 1px solid rgba(16,185,129,0.4);
+    color: var(--emerald-400);
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 999;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ===== SKILLS TABS ===== */
+  .skill-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+    background: rgba(255,255,255,0.04);
+    padding: 0.25rem;
+    border-radius: 8px;
+  }
+
+  .skill-tab {
+    flex: 1;
+    padding: 0.35rem 0.5rem;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--slate-400);
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .skill-tab.active {
+    background: rgba(16,185,129,0.15);
+    color: var(--emerald-400);
+  }
+
+  .skill-category { display: none; }
+  .skill-category.active { display: block; }
+
+  /* ===== MOBILE ===== */
+  @media (max-width: 900px) {
+    .main-layout {
+      grid-template-columns: 1fr;
+      height: auto;
+      overflow: visible;
+    }
+
+    .preview-panel {
+      min-height: 500px;
+      padding: 1rem;
+      overflow-x: auto;
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+
+    #resume-canvas {
+      width: 794px; /* Keep fixed width but let container scroll */
+      transform: scale(0.45);
+      transform-origin: top left;
+      margin-bottom: -550px; /* Offset the scale gap */
+    }
+
+    .view-toggle {
+      display: flex !important;
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 1000;
+      background: var(--accent);
+      color: white;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+
+    .form-panel.mobile-hidden { display: none !important; }
+    .preview-panel.mobile-hidden { display: none !important; }
+    .preview-panel:not(.mobile-hidden) { display: flex !important; }
+
+    .topbar { padding: 0 1rem; }
+    .topbar-actions .btn span { display: none; }
+    .logo { font-size: 1.1rem; }
+    .zoom-control { display: none; }
+  }
+
+  .view-toggle { display: none; }
+
+  /* ===== EXPORT OVERLAY ===== */
+  .export-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .export-overlay.show { display: flex; }
+
+  .export-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid rgba(16,185,129,0.2);
+    border-top-color: var(--emerald-500);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .export-text {
+    font-size: 1rem;
+    color: var(--emerald-400);
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    AKafiq Resume Engine
+    <span>ENGINEERED BY AKAFIQ</span>
+  </div>
+  <div class="topbar-actions">
+    <div class="zoom-control">
+      <span style="font-size:0.7rem; color:var(--slate-400)">Zoom</span>
+      <input type="range" min="0.5" max="1.5" step="0.1" value="1" oninput="adjustZoom(this.value)" style="width:80px">
+    </div>
+    <button class="btn btn-ghost" onclick="saveToLocalStorage()">💾 <span>Save</span></button>
+    <button class="btn btn-ghost" onclick="window.print()">🖨️ <span>Print</span></button>
+    <button class="btn btn-ghost" onclick="clearData()">🗑️ <span>Clear</span></button>
+    <button class="btn btn-primary" onclick="exportPDF()">⬇ Export PDF</button>
+  </div>
+</div>
+
+<!-- TEMPLATE BAR -->
+<div class="template-bar">
+  <span class="template-label">Template:</span>
+  <div class="template-options">
+    <button class="tpl-btn active" onclick="switchTemplate('creative', this)">✨ Creative</button>
+    <button class="tpl-btn" onclick="switchTemplate('minimalist', this)">◻ Minimalist</button>
+    <button class="tpl-btn" onclick="switchTemplate('executive', this)">💼 Executive</button>
+    <button class="tpl-btn" onclick="switchTemplate('luxe', this)">💎 Luxe</button>
+    <button class="tpl-btn" onclick="switchTemplate('custom', this)">🎨 Custom</button>
+    <button class="tpl-btn" onclick="switchTemplate('ats', this)">🤖 ATS</button>
+  </div>
+  <div class="color-customizer" id="color-ctrl">
+    <span class="template-label">Theme:</span>
+    <input type="color" id="accent-picker" value="#10b981" oninput="updateTheme(this.value)">
+  </div>
+  <div id="ats-notice" style="display:none; margin-left:auto; font-size:0.75rem; color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.2); padding:0.25rem 0.75rem; border-radius:6px;">
+    ⚠ ATS Mode: Photo & Charts hidden for machine readability
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+
+  <!-- FORM PANEL -->
+  <div class="form-panel" id="formPanel">
+
+    <!-- PERSONAL INFO -->
+    <div class="form-section">
+      <div class="section-header" onclick="toggleSection('personal')">
+        <span class="section-indicator"></span><div class="section-icon">👤</div>
+        <div class="section-title">Personal Information</div>
+        <div class="section-chevron open" id="chev-personal">›</div>
+      </div>
+      <div class="section-body open" id="sec-personal">
+        <div class="field-group">
+          <label>Passport Photo</label>
+          <div class="photo-upload-area" onclick="document.getElementById('photoInput').click()">
+            <img id="photoPreview" class="photo-preview" alt="passport photo">
+            <div id="photoPlaceholder">
+              <div class="photo-placeholder">📷</div>
+              <div class="photo-hint">Click to upload passport photo<br>(JPG/PNG, 2x2 ratio recommended)</div>
+            </div>
+          </div>
+          <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(this)">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label>Full Name</label>
+            <input type="text" id="f-name" placeholder="Ahmad Kafiq Bin..." oninput="updatePreview()">
+          </div>
+          <div class="field-group">
+            <label>Job Role</label>
+            <input type="text" id="f-role" placeholder="Software Engineer" oninput="updatePreview()">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label>Phone</label>
+            <input type="text" id="f-phone" placeholder="+60 12-345 6789" oninput="updatePreview()">
+          </div>
+          <div class="field-group">
+            <label>Email</label>
+            <input type="email" id="f-email" placeholder="email@domain.com" oninput="updatePreview()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Address</label>
+          <input type="text" id="f-address" placeholder="Kuala Lumpur, Malaysia" oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <label>LinkedIn / Portfolio URL</label>
+          <input type="text" id="f-linkedin" placeholder="linkedin.com/in/username" oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <label style="display:flex; justify-content:space-between">
+            <span>Professional Summary</span>
+            <span id="summary-counter" style="text-transform:none; font-size:0.65rem">0 / 1000</span>
+          </label>
+          <textarea id="f-summary" maxlength="1000" placeholder="Extensive professional summary (recommended: 3-5 sentences)..." oninput="updateSummaryCounter(); updatePreview()"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDUCATION -->
+    <div class="form-section">
+      <div class="section-header" onclick="toggleSection('education')">
+        <span class="section-indicator"></span><div class="section-icon">🎓</div>
+        <div class="section-title">Education</div>
+        <div class="section-chevron" id="chev-education">›</div>
+      </div>
+      <div class="section-body" id="sec-education">
+        <div id="edu-list"></div>
+        <button class="add-btn" onclick="addEducation()">+ Add Education</button>
+      </div>
+    </div>
+
+    <!-- EXPERIENCE -->
+    <div class="form-section">
+      <div class="section-header" onclick="toggleSection('experience')">
+        <span class="section-indicator"></span><div class="section-icon">💼</div>
+        <div class="section-title">Work Experience</div>
+        <div class="section-chevron" id="chev-experience">›</div>
+      </div>
+      <div class="section-body" id="sec-experience">
+        <div id="exp-list"></div>
+        <button class="add-btn" onclick="addExperience()">+ Add Experience</button>
+      </div>
+    </div>
+
+    <!-- ACTIVITIES -->
+    <div class="form-section">
+      <div class="section-header" onclick="toggleSection('activities')">
+        <span class="section-indicator"></span><div class="section-icon">🏆</div>
+        <div class="section-title">University Activities & Achievements</div>
+        <div class="section-chevron" id="chev-activities">›</div>
+      </div>
+      <div class="section-body" id="sec-activities">
+        <div id="act-list"></div>
+        <button class="add-btn" onclick="addActivity()">+ Add Activity</button>
+      </div>
+    </div>
+
+    <!-- SKILLS -->
+    <div class="form-section">
+      <div class="section-header" onclick="toggleSection('skills')">
+        <span class="section-indicator"></span><div class="section-icon">⚡</div>
+        <div class="section-title">Skills Matrix</div>
+        <div class="section-chevron" id="chev-skills">›</div>
+      </div>
+      <div class="section-body" id="sec-skills">
+        <div class="skill-tabs">
+          <button class="skill-tab active" onclick="switchSkillTab('technical', this)">Technical</button>
+          <button class="skill-tab" onclick="switchSkillTab('soft', this)">Soft Skills</button>
+          <button class="skill-tab" onclick="switchSkillTab('tools', this)">Tools</button>
+        </div>
+        <div class="skill-category active" id="sk-technical">
+          <div id="sk-technical-list"></div>
+          <button class="add-btn" onclick="addSkill('technical')">+ Add Technical Skill</button>
+        </div>
+        <div class="skill-category" id="sk-soft">
+          <div id="sk-soft-list"></div>
+          <button class="add-btn" onclick="addSkill('soft')">+ Add Soft Skill</button>
+        </div>
+        <div class="skill-category" id="sk-tools">
+          <div id="sk-tools-list"></div>
+          <button class="add-btn" onclick="addSkill('tools')">+ Add Tool</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXTRA BENEFITS -->
+    <div class="form-section">
+      <div class="section-header" onclick="toggleSection('extras')">
+        <span class="section-indicator"></span><div class="section-icon">✅</div>
+        <div class="section-title">Extra Benefits & Availability</div>
+        <div class="section-chevron" id="chev-extras">›</div>
+      </div>
+      <div class="section-body" id="sec-extras">
+        <div class="field-group">
+          <label>Driver's License</label>
+          <div class="checkbox-grid" id="license-pills">
+            <label class="check-pill" onclick="togglePill(this)"><input type="checkbox" value="D"> D (Car)</label>
+            <label class="check-pill" onclick="togglePill(this)"><input type="checkbox" value="DA"> DA (Auto)</label>
+            <label class="check-pill" onclick="togglePill(this)"><input type="checkbox" value="B2"> B2 (Motorcycle)</label>
+            <label class="check-pill" onclick="togglePill(this)"><input type="checkbox" value="GDL"> GDL (Truck)</label>
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Language Proficiency</label>
+          <div class="checkbox-grid" id="lang-pills">
+            <label class="check-pill" onclick="togglePill(this)"><input type="checkbox" value="Bahasa Malaysia"> BM</label>
+            <label class="check-pill" onclick="togglePill(this)"><input type="checkbox" value="English"> English</label>
+            <label class="check-pill" onclick="togglePill(this)"><input type="checkbox" value="Mandarin"> 华语</label>
+            <label class="check-pill" onclick="togglePill(this)"><input type="checkbox" value="Tamil"> Tamil</label>
+            <label class="check-pill" onclick="togglePill(this)"><input type="checkbox" value="Arabic"> Arabic</label>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label>Notice Period</label>
+            <select id="f-notice" onchange="debouncedUpdatePreview()">
+              <option value="">Select...</option>
+              <option>Immediately Available</option>
+              <option>1 Week</option>
+              <option>2 Weeks</option>
+              <option>1 Month</option>
+              <option>2 Months</option>
+              <option>3 Months</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Expected Salary</label>
+            <input type="text" id="f-salary" placeholder="RM 3,500/month" oninput="updatePreview()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Own Transport</label>
+          <div class="checkbox-grid">
+            <label class="check-pill" id="own-transport-pill" onclick="togglePill(this)"><input type="checkbox" id="f-transport"> Yes, own transport</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOM SETTINGS (Only for Custom Template) -->
+    <div class="form-section" id="custom-meta-section" style="display:none">
+      <div class="section-header" onclick="toggleSection('custom-meta')">
+        <span class="section-indicator"></span><div class="section-icon">🎨</div>
+        <div class="section-title">Custom Layout Designer</div>
+        <div class="section-chevron" id="chev-custom-meta">›</div>
+      </div>
+      <div class="section-body" id="body-custom-meta">
+        <div class="field-row">
+          <div class="field-group">
+            <label>Sidebar Side</label>
+            <select id="f-custom-side" oninput="updatePreview()">
+              <option value="right">Right Sidebar</option>
+              <option value="left">Left Sidebar</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Sidebar Width (%)</label>
+            <input type="number" id="f-custom-width" value="33" oninput="updatePreview()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Layout Spacing</label>
+          <select id="f-custom-padding" oninput="updatePreview()">
+            <option value="3.5rem">Relaxed (3.5rem)</option>
+            <option value="2.5rem">Balanced (2.5rem)</option>
+            <option value="1.5rem">Compact (1.5rem)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- REFERENCES -->
+    <div class="form-section">
+      <div class="section-header" onclick="toggleSection('references')">
+        <span class="section-indicator"></span><div class="section-icon">📋</div>
+        <div class="section-title">References</div>
+        <div class="section-chevron" id="chev-references">›</div>
+      </div>
+      <div class="section-body" id="sec-references">
+        <div id="ref-list"></div>
+        <button class="add-btn" onclick="addReference()">+ Add Reference</button>
+      </div>
+    </div>
+
+  </div><!-- /form-panel -->
+
+  <!-- PREVIEW PANEL -->
+  <div class="preview-panel mobile-hidden">
+    <div id="resume-canvas" class="tpl-creative">
+      <!-- Dynamically rendered -->
+      <div style="padding:3rem; color:#94a3b8; text-align:center; font-size:0.9rem;">
+        Fill in the form to generate your resume →
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-layout -->
+
+<!-- EXPORT OVERLAY -->
+<div class="export-overlay" id="exportOverlay">
+  <div class="export-spinner"></div>
+  <div class="export-text">Generating PDF...</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  template: 'creative',
+  accentColor: '#10b981',
+  photo: null,
+  name: '', role: '', phone: '', email: '', address: '', linkedin: '', summary: '',
+  education: [],
+  experience: [],
+  activities: [],
+  skills: { technical: [], soft: [], tools: [] },
+  licenses: [],
+  languages: [],
+  notice: '',
+  salary: '',
+  transport: false,
+  references: [],
+  customSide: 'right',
+  customWidth: 33,
+  customPadding: '3.5rem'
+};
+
+let radarChart = null;
+
+// ============================================================
+// DEBOUNCE
+// ============================================================
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+const debouncedUpdatePreview = debounce(updatePreview, 250);
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  loadFromLocalStorage();
+  
+  // Only add defaults if list is empty after load
+  if (document.getElementById('edu-list').children.length === 0) addEducation();
+  if (document.getElementById('exp-list').children.length === 0) addExperience();
+  if (document.getElementById('act-list').children.length === 0) addActivity();
+  if (document.getElementById('sk-technical-list').children.length === 0) addSkill('technical');
+  if (document.getElementById('sk-soft-list').children.length === 0) addSkill('soft');
+  if (document.getElementById('sk-tools-list').children.length === 0) addSkill('tools');
+  if (document.getElementById('ref-list').children.length === 0) addReference();
+  
+  updatePreview();
+
+  // Auto-save every 30s
+  setInterval(saveToLocalStorage, 30000);
+});
+
+// ============================================================
+// TOGGLE SECTIONS
+// ============================================================
+function toggleSection(id) {
+  const body = document.getElementById('sec-' + id);
+  const chev = document.getElementById('chev-' + id);
+  body.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+// ============================================================
+// PHOTO HANDLER
+// ============================================================
+function handlePhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    state.photo = e.target.result;
+    document.getElementById('photoPreview').src = state.photo;
+    document.getElementById('photoPreview').style.display = 'block';
+    document.getElementById('photoPlaceholder').style.display = 'none';
+    updatePreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+// ============================================================
+// TEMPLATE SWITCHER
+// ============================================================
+function switchTemplate(tpl, btn) {
+  state.template = tpl;
+  document.querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  
+  const isATS = tpl === 'ats';
+  document.getElementById('ats-notice').style.display = isATS ? 'block' : 'none';
+  document.getElementById('color-ctrl').style.display = isATS ? 'none' : 'flex';
+  
+  // Custom meta designer visibility
+  document.getElementById('custom-meta-section').style.display = tpl === 'custom' ? 'block' : 'none';
+  
+  updatePreview();
+}
+
+let mobileView = 'edit'; // 'edit' or 'preview'
+function toggleMobileMode() {
+  const form = document.querySelector('.form-panel');
+  const preview = document.querySelector('.preview-panel');
+  const btn = document.getElementById('mobileSwitcher');
+  
+  if (mobileView === 'edit') {
+    mobileView = 'preview';
+    form.classList.add('mobile-hidden');
+    preview.classList.remove('mobile-hidden');
+    btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  } else {
+    mobileView = 'edit';
+    form.classList.remove('mobile-hidden');
+    preview.classList.add('mobile-hidden');
+    btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  }
+}
+
+// ============================================================
+// SKILL TABS
+// ============================================================
+function switchSkillTab(cat, btn) {
+  document.querySelectorAll('.skill-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.skill-category').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sk-' + cat).classList.add('active');
+}
+
+// ============================================================
+// DYNAMIC LISTS
+// ============================================================
+let eduCount = 0, expCount = 0, actCount = 0, refCount = 0;
+let skillCounts = { technical: 0, soft: 0, tools: 0 };
+
+function addEducation() {
+  const id = eduCount++;
+  const div = document.createElement('div');
+  div.className = 'dynamic-card';
+  div.id = 'edu-' + id;
+  div.innerHTML = `
+    <button class="card-remove" onclick="removeCard('edu-${id}')">✕</button>
+    <div class="field-group">
+      <label>Qualification Level</label>
+      <select onchange="debouncedUpdatePreview()" id="edu-level-${id}">
+        <option value="">Select Level</option>
+        <option>SPM</option><option>STPM</option><option>Sijil</option>
+        <option>Diploma</option><option>Matriks</option><option>Asasi</option>
+        <option>Degree (Bachelor)</option><option>Master</option><option>PhD</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Institution Name</label>
+      <input type="text" placeholder="Universiti Malaya / SMK..." id="edu-inst-${id}" oninput="updatePreview()">
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Field of Study</label>
+        <input type="text" placeholder="Computer Science..." id="edu-field-${id}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <label>CGPA / Grade</label>
+        <input type="text" placeholder="3.75 / 4.00" id="edu-cgpa-${id}" oninput="updatePreview()">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Year</label>
+        <input type="text" placeholder="2020 — 2024" id="edu-year-${id}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <label>Status</label>
+        <select id="edu-status-${id}" onchange="debouncedUpdatePreview()">
+          <option>Graduated</option><option>Ongoing</option>
+        </select>
+      </div>
+    </div>`;
+  document.getElementById('edu-list').appendChild(div);
+}
+
+function addExperience() {
+  const id = expCount++;
+  const div = document.createElement('div');
+  div.className = 'dynamic-card';
+  div.id = 'exp-' + id;
+  div.innerHTML = `
+    <button class="card-remove" onclick="removeCard('exp-${id}')">✕</button>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Job Title</label>
+        <input type="text" placeholder="Software Developer" id="exp-title-${id}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <label>Company</label>
+        <input type="text" placeholder="TechCorp Sdn Bhd" id="exp-company-${id}" oninput="updatePreview()">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Duration</label>
+        <input type="text" placeholder="Jan 2022 — Present" id="exp-duration-${id}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <label>Location</label>
+        <input type="text" placeholder="Kuala Lumpur" id="exp-loc-${id}" oninput="updatePreview()">
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Key Responsibilities & Achievements</label>
+      <textarea placeholder="• Developed REST APIs using Node.js&#10;• Led team of 5 developers..." id="exp-desc-${id}" oninput="updatePreview()"></textarea>
+    </div>`;
+  document.getElementById('exp-list').appendChild(div);
+}
+
+function addActivity() {
+  const id = actCount++;
+  const div = document.createElement('div');
+  div.className = 'dynamic-card';
+  div.id = 'act-' + id;
+  div.innerHTML = `
+    <button class="card-remove" onclick="removeCard('act-${id}')">✕</button>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Activity / Role</label>
+        <input type="text" placeholder="President, Tech Club" id="act-title-${id}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <label>Organisation</label>
+        <input type="text" placeholder="UTHM Tech Society" id="act-org-${id}" oninput="updatePreview()">
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Year / Description</label>
+      <input type="text" placeholder="2022 — Organised national hackathon..." id="act-desc-${id}" oninput="updatePreview()">
+    </div>`;
+  document.getElementById('act-list').appendChild(div);
+}
+
+function addSkill(cat) {
+  const id = skillCounts[cat]++;
+  const div = document.createElement('div');
+  div.className = 'skill-item';
+  div.id = `sk-${cat}-item-${id}`;
+  div.innerHTML = `
+    <div class="skill-header">
+      <div style="flex: 1">
+        <input type="text" class="skill-name-input" placeholder="Skill name..." id="sk-${cat}-name-${id}" oninput="updatePreview()">
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem">
+        <span class="skill-label" id="sk-${cat}-label-${id}" style="font-size:0.65rem; background:var(--accent-light); color:var(--accent); padding:2px 6px; border-radius:4px; font-weight:700">Expert</span>
+        <span class="skill-pct" id="sk-${cat}-pct-${id}">80%</span>
+        <button class="card-remove" style="position:relative;top:0;right:0;margin-left:0.5rem" onclick="removeCard('sk-${cat}-item-${id}')">✕</button>
+      </div>
+    </div>
+    <input type="range" min="10" max="100" value="80" step="5"
+      id="sk-${cat}-range-${id}"
+      oninput="updateSkillDisplay('${cat}', ${id}, this.value)">`;
+  document.getElementById(`sk-${cat}-list`).appendChild(div);
+  updateSkillDisplay(cat, id, 80);
+}
+
+function updateSkillDisplay(cat, id, val) {
+  const labelEl = document.getElementById(`sk-${cat}-label-${id}`);
+  const pctEl = document.getElementById(`sk-${cat}-pct-${id}`);
+  if (pctEl) pctEl.textContent = val + '%';
+  if (labelEl) {
+    const v = parseInt(val);
+    if (v <= 50) { labelEl.textContent = 'Easy'; labelEl.style.background = 'rgba(148,163,184,0.15)'; labelEl.style.color = '#94a3b8'; }
+    else if (v <= 75) { labelEl.textContent = 'Medium'; labelEl.style.background = 'rgba(251,191,36,0.15)'; labelEl.style.color = '#fbbf24'; }
+    else { labelEl.textContent = 'Expert'; labelEl.style.background = 'var(--accent-light)'; labelEl.style.color = 'var(--accent)'; }
+  }
+  updatePreview();
+}
+
+function addReference() {
+  const id = refCount++;
+  const div = document.createElement('div');
+  div.className = 'dynamic-card';
+  div.id = 'ref-' + id;
+  div.innerHTML = `
+    <button class="card-remove" onclick="removeCard('ref-${id}')">✕</button>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Full Name</label>
+        <input type="text" placeholder="Dr. Ahmad..." id="ref-name-${id}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <label>Position</label>
+        <input type="text" placeholder="Head of Department" id="ref-pos-${id}" oninput="updatePreview()">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Company / Institution</label>
+        <input type="text" placeholder="Universiti Malaya" id="ref-company-${id}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <label>Contact</label>
+        <input type="text" placeholder="+60 xx-xxx xxxx" id="ref-contact-${id}" oninput="updatePreview()">
+      </div>
+    </div>`;
+  document.getElementById('ref-list').appendChild(div);
+}
+
+function removeCard(id) {
+  const el = document.getElementById(id);
+  if (el) { 
+    el.style.opacity = '0'; 
+    el.style.transform = 'scale(0.95)';
+    el.style.transition = 'all 0.2s ease';
+    setTimeout(() => {
+      el.remove();
+      updatePreview();
+    }, 200); 
+  }
+}
+
+// ============================================================
+// PILL TOGGLE
+// ============================================================
+function togglePill(el) {
+  const checkbox = el.querySelector('input');
+  if (checkbox) {
+    checkbox.checked = !checkbox.checked;
+    el.classList.toggle('checked', checkbox.checked);
+  }
+  debouncedUpdatePreview();
+}
+
+// ============================================================
+// COLLECT STATE
+// ============================================================
+function collectState() {
+  state.name = v('f-name');
+  state.role = v('f-role');
+  state.phone = v('f-phone');
+  state.email = v('f-email');
+  state.address = v('f-address');
+  state.linkedin = v('f-linkedin');
+  state.summary = v('f-summary');
+  state.notice = v('f-notice');
+  state.salary = v('f-salary');
+
+  // Education
+  state.education = [];
+  document.querySelectorAll('[id^="edu-level-"]').forEach(el => {
+    const id = el.id.replace('edu-level-', '');
+    const card = document.getElementById('edu-' + id);
+    if (!card) return;
+    state.education.push({
+      level: el.value,
+      inst: v(`edu-inst-${id}`),
+      field: v(`edu-field-${id}`),
+      cgpa: v(`edu-cgpa-${id}`),
+      year: v(`edu-year-${id}`),
+      status: v(`edu-status-${id}`)
+    });
+  });
+
+  // Experience
+  state.experience = [];
+  document.querySelectorAll('[id^="exp-title-"]').forEach(el => {
+    const id = el.id.replace('exp-title-', '');
+    const card = document.getElementById('exp-' + id);
+    if (!card) return;
+    state.experience.push({
+      title: el.value,
+      company: v(`exp-company-${id}`),
+      duration: v(`exp-duration-${id}`),
+      loc: v(`exp-loc-${id}`),
+      desc: v(`exp-desc-${id}`)
+    });
+  });
+
+  // Activities
+  state.activities = [];
+  document.querySelectorAll('[id^="act-title-"]').forEach(el => {
+    const id = el.id.replace('act-title-', '');
+    const card = document.getElementById('act-' + id);
+    if (!card) return;
+    state.activities.push({
+      title: el.value,
+      org: v(`act-org-${id}`),
+      desc: v(`act-desc-${id}`)
+    });
+  });
+
+  // Skills
+  ['technical', 'soft', 'tools'].forEach(cat => {
+    state.skills[cat] = [];
+    document.querySelectorAll(`[id^="sk-${cat}-name-"]`).forEach(el => {
+      const id = el.id.replace(`sk-${cat}-name-`, '');
+      const item = document.getElementById(`sk-${cat}-item-${id}`);
+      if (!item) return;
+      const range = document.getElementById(`sk-${cat}-range-${id}`);
+      if (el.value.trim()) {
+        state.skills[cat].push({ name: el.value, pct: range ? parseInt(range.value) : 80 });
+      }
+    });
+  });
+
+  // Licenses
+  state.licenses = [];
+  document.querySelectorAll('#license-pills .check-pill.checked input').forEach(inp => {
+    state.licenses.push(inp.value);
+  });
+
+  // Languages
+  state.languages = [];
+  document.querySelectorAll('#lang-pills .check-pill.checked input').forEach(inp => {
+    state.languages.push(inp.value);
+  });
+
+  state.transport = document.getElementById('own-transport-pill').classList.contains('checked');
+
+  // References
+  state.references = [];
+  document.querySelectorAll('[id^="ref-name-"]').forEach(el => {
+    const id = el.id.replace('ref-name-', '');
+    const card = document.getElementById('ref-' + id);
+    if (!card) return;
+    state.references.push({
+      name: el.value,
+      pos: v(`ref-pos-${id}`),
+      company: v(`ref-company-${id}`),
+      contact: v(`ref-contact-${id}`)
+    });
+  });
+
+  state.customSide = v('f-custom-side');
+  state.customWidth = parseInt(v('f-custom-width')) || 33;
+  state.customPadding = v('f-custom-padding');
+}
+
+function v(id) {
+  const el = document.getElementById(id);
+  return el ? el.value || '' : '';
+}
+
+// ============================================================
+// RENDER PREVIEW
+// ============================================================
+function updatePreview() {
+  collectState();
+  const canvas = document.getElementById('resume-canvas');
+  canvas.className = 'tpl-' + state.template;
+  updateCompletionIndicators();
+
+  if (state.template === 'creative') renderCreative(canvas);
+  else if (state.template === 'minimalist') renderMinimalist(canvas);
+  else if (state.template === 'executive') renderExecutive(canvas);
+  else if (state.template === 'luxe') renderLuxe(canvas);
+  else if (state.template === 'custom') renderCustom(canvas);
+  else renderATS(canvas);
+}
+
+// ============================================================
+// CREATIVE TEMPLATE
+// ============================================================
+function renderCreative(el) {
+  const s = state;
+  const accent = s.accentColor;
+
+  // Sidebar contact items
+  let contacts = '';
+  if (s.phone) contacts += contactItem('phone', s.phone);
+  if (s.email) contacts += contactItem('email', s.email);
+  if (s.address) contacts += contactItem('address', s.address);
+  if (s.linkedin) contacts += contactItem('linkedin', s.linkedin);
+
+  // Tech skills for sidebar
+  let techSkillBars = '';
+  s.skills.technical.slice(0, 6).forEach(sk => {
+    techSkillBars += `
+      <div class="cv-skill-bar">
+        <div class="cv-skill-label">
+          <span>${esc(sk.name)}</span>
+          <span style="font-size:0.6rem; opacity:0.8">${getSkillLevel(sk.pct)}</span>
+        </div>
+        <div class="cv-skill-track"><div class="cv-skill-fill" style="width:${sk.pct}%; background:${accent}"></div></div>
+      </div>`;
+  });
+
+  // Languages
+  let langPills = s.languages.map(l => `<span class="cv-lang-pill" style="background:var(--accent-light); border-color:${accent}; color:${accent}">${esc(l)}</span>`).join('');
+
+  // Extras
+  let extras = '';
+  if (s.licenses.length) extras += `<div class="cv-contact-item">${svgIcon('license', accent)} License: ${esc(s.licenses.join(' · '))}</div>`;
+  if (s.notice) extras += `<div class="cv-contact-item">${svgIcon('notice', accent)} ${esc(s.notice)}</div>`;
+  if (s.salary) extras += `<div class="cv-contact-item">${svgIcon('salary', accent)} ${esc(s.salary)}</div>`;
+  if (s.transport) extras += `<div class="cv-contact-item">${svgIcon('transport', accent)} Own Transport</div>`;
+
+  el.innerHTML = `
+    <div class="cv-sidebar">
+      <div class="cv-photo-wrap">
+        ${s.photo ? `<img class="cv-photo" src="${s.photo}" style="border-color:${accent}" alt="photo">` : `<div class="cv-photo-placeholder" style="background:var(--accent-light); border-color:${accent}">👤</div>`}
+        <div class="cv-name">${esc(s.name) || 'Your Name'}</div>
+        <div class="cv-role" style="color:${accent}">${esc(s.role) || 'Professional Title'}</div>
+      </div>
+
+      <div class="cv-sidebar-section">
+        <div class="cv-sidebar-title" style="color:${accent}">Contact</div>
+        ${contacts || '<div class="cv-contact-item" style="color:rgba(255,255,255,0.3)">Fill in your details</div>'}
+      </div>
+
+      ${langPills ? `<div class="cv-sidebar-section"><div class="cv-sidebar-title" style="color:${accent}">Languages</div><div>${langPills}</div></div>` : ''}
+      ${extras ? `<div class="cv-sidebar-section"><div class="cv-sidebar-title" style="color:${accent}">Info</div>${extras}</div>` : ''}
+      ${techSkillBars ? `<div class="cv-sidebar-section"><div class="cv-sidebar-title" style="color:${accent}">Skills</div>${techSkillBars}</div>` : ''}
+    </div>
+
+    <div class="cv-main">
+      ${s.summary ? `<div class="cv-main-section"><div class="cv-main-title" style="color:${accent}">Summary</div><div class="cv-item-body" style="text-align:justify">${esc(s.summary)}</div></div>` : ''}
+      ${renderTimeline(s.education, 'Education', accent)}
+      ${renderTimeline(s.experience, 'Experience', accent)}
+      ${renderTimeline(s.activities, 'Activities', accent)}
+      ${s.references.length ? `
+        <div class="cv-main-section">
+          <div class="cv-main-title" style="color:${accent}">References</div>
+          <div class="cv-ref-grid">
+            ${s.references.map(r => `
+              <div class="cv-ref-card">
+                <div class="cv-ref-name">${esc(r.name)}</div>
+                <div class="cv-ref-pos">${esc(r.pos)} · ${esc(r.company)}</div>
+                <div class="cv-ref-tel" style="color:${accent}">${esc(r.contact)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>`;
+}
+
+function renderTimeline(items, title, accent) {
+  if (!items.length) return '';
+  const html = items.map(item => `
+    <div class="cv-timeline-item" style="border-left-color:${accent}44">
+      <div style="position:absolute; left:-5px; top:5px; width:8px; height:8px; border-radius:50%; background:${accent}"></div>
+      <div class="cv-item-title">${esc(item.title || item.level)}</div>
+      <div class="cv-item-sub">${esc(item.company || item.inst)} · ${esc(item.duration || item.year)}</div>
+      ${item.desc ? `<div class="cv-item-body" style="text-align:justify">${esc(item.desc)}</div>` : ''}
+    </div>`).join('');
+  return `<div class="cv-main-section"><div class="cv-main-title" style="color:${accent}">${title}</div>${html}</div>`;
+}
+
+// ============================================================
+// MINIMALIST TEMPLATE
+// ============================================================
+function renderMinimalist(el) {
+  const s = state;
+  const accent = s.accentColor;
+
+  const contactList = [];
+  if (s.phone) contactList.push(`${svgIcon('phone', accent, 12)} ${esc(s.phone)}`);
+  if (s.email) contactList.push(`${svgIcon('email', accent, 12)} ${esc(s.email)}`);
+  if (s.address) contactList.push(`${svgIcon('address', accent, 12)} ${esc(s.address)}`);
+  if (s.linkedin) contactList.push(`${svgIcon('linkedin', accent, 12)} ${esc(s.linkedin)}`);
+  const contacts = contactList.join(' · ');
+
+  const allSkills = [...s.skills.technical, ...s.skills.soft].filter(sk => sk.name);
+  let skillsHTML = allSkills.map(sk => `
+    <div class="min-skill-row">
+      <div class="min-skill-name">${esc(sk.name)} <span style="font-size:0.6rem; color:${accent}; opacity:0.8">— ${getSkillLevel(sk.pct)}</span></div>
+      <div class="min-skill-bar-track"><div class="min-skill-bar-fill" style="width:${sk.pct}%; background:${accent}"></div></div>
+    </div>`).join('');
+
+  let eduHTML = s.education.filter(e => e.inst || e.level).map(e => `
+    <div class="min-exp-item">
+      <div>
+        <div class="min-exp-title" style="color:#0f172a">${[esc(e.level), esc(e.inst)].filter(Boolean).join(' — ')}</div>
+        <div class="min-exp-sub">${esc(e.field)} ${e.cgpa ? '· CGPA ' + esc(e.cgpa) : ''}</div>
+      </div>
+      <div style="text-align: right">
+        <div class="min-exp-date">${esc(e.year)}</div>
+        <div style="font-size:0.7rem; color:${accent}; margin-top:0.2rem; font-weight:600">${esc(e.status)}</div>
+      </div>
+    </div>`).join('');
+
+  let expHTML = s.experience.filter(e => e.title || e.company).map(e => `
+    <div class="min-exp-item">
+      <div>
+        <div class="min-exp-title" style="color:#0f172a">${esc(e.title)}</div>
+        <div class="min-exp-sub" style="color:${accent}; font-weight:600">${esc(e.company)} ${e.loc ? '· ' + esc(e.loc) : ''}</div>
+      </div>
+      <div class="min-exp-date" style="text-align: right">${esc(e.duration)}</div>
+      ${e.desc ? `<div class="min-exp-body" style="white-space:pre-line; text-align:justify">${esc(e.desc)}</div>` : ''}
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div class="min-header">
+      <div class="min-name">${esc(s.name) || 'Your Full Name'}</div>
+      <div class="min-role" style="color:${accent}">${esc(s.role) || 'Professional Title'}</div>
+      <div class="min-contacts" style="font-size: 0.75rem; color: #64748b; margin-top: 5px;">${contacts}</div>
+    </div>
+
+    <div class="cv-main-section">
+      <div class="min-exp-title" style="text-transform:uppercase; font-size:0.7rem; letter-spacing:0.1em; color:#94a3b8; margin-bottom:0.75rem">Profile</div>
+      <div class="min-exp-body" style="text-align:justify">${esc(s.summary)}</div>
+    </div>
+
+    ${expHTML ? `<div class="cv-main-section"><div class="min-exp-title" style="text-transform:uppercase; font-size:0.7rem; letter-spacing:0.1em; color:#94a3b8; margin-bottom:1rem">Experience</div>${expHTML}</div>` : ''}
+    ${eduHTML ? `<div class="cv-main-section"><div class="min-exp-title" style="text-transform:uppercase; font-size:0.7rem; letter-spacing:0.1em; color:#94a3b8; margin-bottom:1rem">Education</div>${eduHTML}</div>` : ''}
+    
+    ${s.activities.length ? `
+      <div class="cv-main-section">
+        <div class="min-exp-title" style="text-transform:uppercase; font-size:0.7rem; letter-spacing:0.1em; color:#94a3b8; margin-bottom:1rem">Activities</div>
+        ${s.activities.map(a => `<div class="min-exp-item"><div><div class="min-exp-title" style="color:#0f172a">${esc(a.title)}</div><div class="min-exp-sub">${esc(a.org)}</div><div class="min-exp-body" style="text-align:justify">${esc(a.desc)}</div></div></div>`).join('')}
+      </div>
+    ` : ''}
+
+    ${skillsHTML ? `<div class="cv-main-section"><div class="min-exp-title" style="text-transform:uppercase; font-size:0.7rem; letter-spacing:0.1em; color:#94a3b8; margin-bottom:1rem">Skills & Proficiency</div><div style="display:grid; grid-template-columns:1fr 1fr; gap:0 2rem">${skillsHTML}</div></div>` : ''}
+    
+    <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; margin-top: 1rem">
+      ${(s.licenses.length || s.languages.length || s.notice || s.salary || s.transport) ? `
+        <div>
+          <div class="min-exp-title" style="text-transform:uppercase; font-size:0.7rem; letter-spacing:0.1em; color:#94a3b8; margin-bottom:0.75rem">Extra Info</div>
+          <div style="display:flex; flex-direction:column; gap:6px">
+            ${s.licenses.length ? `<div style="font-size:0.75rem; color:#475569">${svgIcon('license', accent, 14)} Licenses: ${esc(s.licenses.join(', '))}</div>` : ''}
+            ${s.languages.length ? `<div style="font-size:0.75rem; color:#475569">${svgIcon('globe', accent, 14)} Languages: ${esc(s.languages.join(', '))}</div>` : ''}
+            ${s.notice ? `<div style="font-size:0.75rem; color:#475569">${svgIcon('notice', accent, 14)} Availability: ${esc(s.notice)}</div>` : ''}
+            ${s.salary ? `<div style="font-size:0.75rem; color:#475569">${svgIcon('salary', accent, 14)} Expected Salary: ${esc(s.salary)}</div>` : ''}
+            ${s.transport ? `<div style="font-size:0.75rem; color:#475569">${svgIcon('transport', accent, 14)} Own Transport</div>` : ''}
+          </div>
+        </div>
+      ` : ''}
+      ${s.references.length ? `
+        <div>
+          <div class="min-exp-title" style="text-transform:uppercase; font-size:0.7rem; letter-spacing:0.1em; color:#94a3b8; margin-bottom:0.75rem">References</div>
+          ${s.references.map(r => `<div style="margin-bottom:8px"><div style="font-size:0.8rem; font-weight:700; color:#0f172a">${esc(r.name)}</div><div style="font-size:0.7rem; color:#64748b">${esc(r.pos)} · ${esc(r.company)}</div><div style="font-size:0.7rem; color:${accent}">${esc(r.contact)}</div></div>`).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderExecutive(el) {
+  const s = state;
+  const accent = s.accentColor;
+
+  const contactList = [];
+  if (s.phone) contactList.push(`<span>${s.phone}</span>`);
+  if (s.email) contactList.push(`<span>${s.email}</span>`);
+  if (s.address) contactList.push(`<span>${s.address}</span>`);
+  const contactsHTML = contactList.map(c => `<div class="exec-contact-item">${c}</div>`).join('');
+
+  el.innerHTML = `
+    <div class="exec-container">
+      <div class="exec-accent-bar" style="background:linear-gradient(90deg, #0f172a, ${accent})"></div>
+      <header class="exec-header">
+        <div class="exec-header-left">
+          <h1 class="exec-name">${esc(s.name) || 'Name'}</h1>
+          <div class="exec-role" style="color:${accent}">${esc(s.role) || 'Title'}</div>
+        </div>
+        <div class="exec-header-right">${contactsHTML}</div>
+      </header>
+
+      <div class="exec-content-grid">
+        <div class="exec-main">
+          <div class="exec-section">
+            <div class="exec-section-title" style="border-left-color:${accent}">Summary</div>
+            <div class="exec-summary-text" style="text-align:justify">${esc(s.summary)}</div>
+          </div>
+          <div class="exec-section">
+            <div class="exec-section-title" style="border-left-color:${accent}">Experience</div>
+            ${s.experience.map(e => `
+              <div class="exec-item">
+                <div class="exec-item-header">
+                  <div class="exec-item-title">${esc(e.title)}</div>
+                  <div class="exec-item-date">${esc(e.duration)}</div>
+                </div>
+                <div class="exec-item-sub" style="color:${accent}">${esc(e.company)}</div>
+                <div class="exec-item-body" style="text-align:justify">${esc(e.desc)}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          ${s.activities.length ? `
+            <div class="exec-section">
+              <div class="exec-section-title" style="border-left-color:${accent}">Activities</div>
+              ${s.activities.map(a => `
+                <div class="exec-item">
+                  <div class="exec-item-title">${esc(a.title)}</div>
+                  <div class="exec-item-sub">${esc(a.org)}</div>
+                  <div class="exec-item-body" style="text-align:justify">${esc(a.desc)}</div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+
+        <aside class="exec-sidebar">
+          <div class="exec-section">
+            <div class="exec-sidebar-title">Education</div>
+            ${s.education.map(e => `
+              <div class="exec-item">
+                <div class="exec-item-title" style="font-size:0.85rem">${esc(e.level)}</div>
+                <div class="exec-item-sub" style="margin-bottom:2px">${esc(e.inst)}</div>
+                <div class="exec-item-date">${esc(e.year)}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="exec-section">
+            <div class="exec-sidebar-title">Expertise</div>
+            <div class="exec-pill-group">
+              ${s.skills.technical.map(sk => `<div class="exec-pill" style="background:${accent}">${esc(sk.name)} · ${getSkillLevel(sk.pct)}</div>`).join('')}
+            </div>
+          </div>
+
+          ${(s.licenses.length || s.languages.length || s.notice || s.salary || s.transport) ? `
+            <div class="exec-section" style="margin-top:1.5rem">
+              <div class="exec-sidebar-title">Extra Info</div>
+              <div style="font-size:0.7rem; color:#64748b; display:flex; flex-direction:column; gap:6px; margin-left:10px">
+                ${s.licenses.length ? `<div>${svgIcon('license', accent, 12)} Licenses: ${esc(s.licenses.join(', '))}</div>` : ''}
+                ${s.languages.length ? `<div>${svgIcon('globe', accent, 12)} Languages: ${esc(s.languages.join(', '))}</div>` : ''}
+                ${s.notice ? `<div>${svgIcon('notice', accent, 12)} Availability: ${esc(s.notice)}</div>` : ''}
+                ${s.salary ? `<div>${svgIcon('salary', accent, 12)} Salary: ${esc(s.salary)}</div>` : ''}
+                ${s.transport ? `<div>${svgIcon('transport', accent, 12)} Own Transport</div>` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          ${s.references.length ? `
+            <div class="exec-section" style="margin-top:1.5rem">
+              <div class="exec-sidebar-title">References</div>
+              ${s.references.map(r => `
+                <div style="margin-bottom:8px; margin-left:10px">
+                  <div style="font-size:0.75rem; font-weight:700; color:#0f172a">${esc(r.name)}</div>
+                  <div style="font-size:0.65rem; color:#64748b">${esc(r.pos)}</div>
+                  <div style="font-size:0.65rem; color:${accent}">${esc(r.contact)}</div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </aside>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// ATS TEMPLATE
+// ============================================================
+function renderATS(el) {
+  const s = state;
+
+  const contactList = [];
+  if (s.phone) contactList.push(esc(s.phone));
+  if (s.email) contactList.push(esc(s.email));
+  if (s.address) contactList.push(esc(s.address));
+  if (s.linkedin) contactList.push(esc(s.linkedin));
+  const contacts = contactList.join(' | ');
+
+  let eduHTML = s.education.filter(e => e.inst || e.level).map(e => `
+    <div style="margin-bottom: 0.5rem;">
+      <div class="ats-item-title">${[esc(e.level), esc(e.inst)].filter(Boolean).join(' | ')}</div>
+      <div class="ats-item-sub">${[esc(e.field), e.cgpa ? 'CGPA: ' + esc(e.cgpa) : '', esc(e.year), esc(e.status)].filter(Boolean).join(' | ')}</div>
+    </div>`).join('');
+
+  let expHTML = s.experience.filter(e => e.title || e.company).map(e => `
+    <div style="margin-bottom: 0.8rem;">
+      <div class="ats-item-title">${[esc(e.title), esc(e.company)].filter(Boolean).join(' | ')}</div>
+      <div class="ats-item-sub">${[esc(e.duration), esc(e.loc)].filter(Boolean).join(' | ')}</div>
+      <div class="ats-item-body" style="white-space:pre-line; margin-top: 2px; text-align:justify">${esc(e.desc)}</div>
+    </div>`).join('');
+
+  let actHTML = s.activities.filter(a => a.title).map(a => `
+    <div style="margin-bottom: 0.5rem;">
+      <div class="ats-item-title">${[esc(a.title), esc(a.org)].filter(Boolean).join(' | ')}</div>
+      <div class="ats-item-body">${esc(a.desc)}</div>
+    </div>`).join('');
+
+  const allSkills = [...s.skills.technical, ...s.skills.soft, ...s.skills.tools].filter(sk => sk.name);
+  let skillsHTML = `<div class="ats-skill-list">${allSkills.map(sk => `<span class="ats-skill-text">${esc(sk.name)}</span>`).join(' | ')}</div>`;
+
+  const refs = s.references.filter(r => r.name);
+  let refHTML = refs.map(r => `
+    <div class="ats-ref-item">
+      <div class="ats-item-title">${[esc(r.name), esc(r.pos), esc(r.company)].filter(Boolean).join(' | ')}</div>
+      <div class="ats-item-sub">${esc(r.contact)}</div>
+    </div>`).join('');
+
+  let extras = [];
+  if (s.licenses.length) extras.push('Licenses: ' + s.licenses.join(', '));
+  if (s.languages.length) extras.push('Languages: ' + s.languages.join(', '));
+  if (s.notice) extras.push('Notice Period: ' + s.notice);
+  if (s.salary) extras.push('Expected Salary: ' + s.salary);
+  if (s.transport) extras.push('Own Transport: Yes');
+
+  el.innerHTML = `
+    <div class="ats-name">${esc(s.name) || 'FULL NAME'}</div>
+    <div class="ats-role">${esc(s.role)}</div>
+    <div class="ats-contacts">${contacts}</div>
+
+    ${s.summary ? `<div class="ats-section-title">Professional Summary</div><div class="ats-item-body" style="text-align:justify">${esc(s.summary)}</div>` : ''}
+    ${eduHTML ? `<div class="ats-section-title">Education</div>${eduHTML}` : ''}
+    ${expHTML ? `<div class="ats-section-title">Work Experience</div>${expHTML}` : ''}
+    ${actHTML ? `<div class="ats-section-title">Activities & Achievements</div>${actHTML}` : ''}
+    ${allSkills.length ? `<div class="ats-section-title">Skills</div>${skillsHTML}` : ''}
+    ${extras.length ? `<div class="ats-section-title">Additional Information</div><div class="ats-item-body">${extras.join(' | ')}</div>` : ''}
+    ${refHTML ? `<div class="ats-section-title">References</div>${refHTML}` : ''}`;
+}
+
+function renderLuxe(el) {
+  const s = state;
+  const accent = s.accentColor;
+
+  const contactList = [];
+  if (s.phone) contactList.push(`${svgIcon('phone', accent, 14)} ${esc(s.phone)}`);
+  if (s.email) contactList.push(`${svgIcon('email', accent, 14)} ${esc(s.email)}`);
+  if (s.address) contactList.push(`${svgIcon('address', accent, 14)} ${esc(s.address)}`);
+  const contacts = contactList.join('<span style="margin:0 1.5rem; opacity:0.3">|</span>');
+
+  let eduHTML = s.education.filter(e => e.inst || e.level).map(e => `
+    <div style="margin-bottom: 2rem;">
+      <div style="display:flex; justify-content:space-between; align-items: baseline;">
+        <h3 style="font-family:'Playfair Display', serif; font-size:1.1rem; color:#0f172a">${esc(e.level)} — ${esc(e.field)}</h3>
+        <span style="font-size:0.8rem; font-weight:600; color:${accent}">${esc(e.year)}</span>
+      </div>
+      <div style="font-size:0.85rem; color:#64748b; margin-top:0.25rem">${esc(e.inst)} · ${esc(e.status)} ${e.cgpa ? '· ' + esc(e.cgpa) : ''}</div>
+    </div>`).join('');
+
+  let expHTML = s.experience.filter(e => e.title || e.company).map(e => `
+    <div style="margin-bottom: 2rem;">
+      <div style="display:flex; justify-content:space-between; align-items: baseline;">
+        <h3 style="font-family:'Playfair Display', serif; font-size:1.1rem; color:#0f172a">${esc(e.title)}</h3>
+        <span style="font-size:0.8rem; font-weight:600; color:${accent}">${esc(e.duration)}</span>
+      </div>
+      <div style="font-size:0.85rem; font-weight:600; color:#475569; margin-top:0.25rem">${esc(e.company)} · ${esc(e.loc)}</div>
+      <div style="font-size:0.85rem; color:#64748b; line-height:1.7; margin-top:0.75rem">${esc(e.desc)}</div>
+    </div>`).join('');
+
+  const allSkills = [...s.skills.technical, ...s.skills.soft].filter(sk => sk.name);
+  let skillsHTML = allSkills.map(sk => `
+    <div style="padding: 0.75rem; border:1px solid #f1f5f9; border-radius:8px; text-align:center">
+      <div style="font-size:0.8rem; font-weight:700; color:#0f172a">${esc(sk.name)}</div>
+      <div style="font-size:0.6rem; color:${accent}; text-transform:uppercase; letter-spacing:0.05em; margin-top:3px">${getSkillLevel(sk.pct)}</div>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div style="padding: 4rem 3rem">
+      <header style="text-align:center; margin-bottom: 3.5rem">
+        <h1 style="font-family:'Playfair Display', serif; font-size:3.2rem; color:#0f172a; margin-bottom:0.5rem; letter-spacing:-0.02em; line-height:1">${esc(s.name) || 'Name'}</h1>
+        <div style="font-size:0.9rem; letter-spacing:0.3em; text-transform:uppercase; color:#64748b; margin-bottom:1.5rem">${esc(s.role) || 'Profession'}</div>
+        <div style="display:flex; justify-content:center; align-items:center; flex-wrap:wrap; font-size:0.85rem; color:#475569">${contacts}</div>
+      </header>
+
+      <div style="display:grid; grid-template-columns: 1fr; gap: 3rem">
+        <section>
+          <h2 style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.2em; color:${accent}; margin-bottom:1.5rem; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem">Summary</h2>
+          <p style="font-size:0.9rem; line-height:1.8; color:#475569; text-align:justify">${esc(s.summary)}</p>
+        </section>
+
+        <section>
+          <h2 style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.2em; color:${accent}; margin-bottom:1.5rem; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem">Experience</h2>
+          ${expHTML}
+        </section>
+
+        <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap: 3rem">
+          <section>
+            <h2 style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.2em; color:${accent}; margin-bottom:1.5rem; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem">Education</h2>
+            ${eduHTML}
+          </section>
+          <section>
+            <h2 style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.2em; color:${accent}; margin-bottom:1.5rem; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem">Expertise</h2>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem">${skillsHTML}</div>
+          </section>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 3rem">
+          ${s.activities.length ? `
+            <section>
+              <h2 style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.2em; color:${accent}; margin-bottom:1.5rem; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem">Activities</h2>
+              ${s.activities.map(a => `
+                <div style="margin-bottom:1.25rem">
+                  <div style="font-weight:700; color:#0f172a; font-size:0.9rem">${esc(a.title)}</div>
+                  <div style="font-size:0.8rem; color:#64748b">${esc(a.org)}</div>
+                  <div style="font-size:0.8rem; color:#475569; margin-top:0.25rem; text-align:justify">${esc(a.desc)}</div>
+                </div>
+              `).join('')}
+            </section>
+          ` : ''}
+          ${s.references.length ? `
+            <section>
+              <h2 style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.2em; color:${accent}; margin-bottom:1.5rem; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem">References</h2>
+              ${s.references.map(r => `
+                <div style="margin-bottom:1rem">
+                  <div style="font-weight:700; color:#0f172a; font-size:0.9rem">${esc(r.name)}</div>
+                  <div style="font-size:0.8rem; color:#64748b">${esc(r.pos)} · ${esc(r.company)}</div>
+                  <div style="font-size:0.8rem; color:${accent}; font-weight:600">${esc(r.contact)}</div>
+                </div>
+              `).join('')}
+            </section>
+          ` : ''}
+        </div>
+
+        ${(s.licenses.length || s.languages.length || s.notice || s.salary || s.transport) ? `
+          <section style="background:#f8fafc; padding:1.5rem; border-radius:8px; border:1px solid #f1f5f9">
+            <h2 style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.2em; color:${accent}; margin-bottom:1rem">Availability & Qualifications</h2>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem">
+              ${s.licenses.length ? `<div style="font-size:0.85rem; color:#475569">${svgIcon('license', accent, 16)} <strong>Licenses:</strong> ${esc(s.licenses.join(', '))}</div>` : ''}
+              ${s.languages.length ? `<div style="font-size:0.85rem; color:#475569">${svgIcon('globe', accent, 16)} <strong>Languages:</strong> ${esc(s.languages.join(', '))}</div>` : ''}
+              ${s.notice ? `<div style="font-size:0.85rem; color:#475569">${svgIcon('notice', accent, 16)} <strong>Availability:</strong> ${esc(s.notice)}</div>` : ''}
+              ${s.salary ? `<div style="font-size:0.85rem; color:#475569">${svgIcon('salary', accent, 16)} <strong>Salary:</strong> ${esc(s.salary)}</div>` : ''}
+              ${s.transport ? `<div style="font-size:0.85rem; color:#475569">${svgIcon('transport', accent, 16)} <strong>Transport:</strong> Own Transport</div>` : ''}
+            </div>
+          </section>
+        ` : ''}
+      </div>
+    </div>`;
+}
+
+function renderCustom(el) {
+  const s = state;
+  const accent = s.accentColor;
+  const side = s.customSide || 'right';
+  const sidebarWidth = s.customWidth || 33;
+  const padding = s.customPadding || '3.5rem';
+
+  const gridCols = side === 'left' ? `${sidebarWidth}% 1fr` : `1fr ${sidebarWidth}%`;
+
+  el.innerHTML = `
+    <div style="display:grid; grid-template-columns: ${gridCols}; min-height:1123px; background: white">
+      ${side === 'left' ? renderCustomSidebar(s, accent) : ''}
+      <div style="padding: ${padding}; overflow: hidden">
+        <h1 style="font-size:2.8rem; font-weight:800; color:#0f172a; margin-bottom:0.5rem; line-height:1">${esc(s.name) || 'Name'}</h1>
+        <p style="font-size:1.1rem; color:${accent}; font-weight:600; margin-bottom:2.5rem">${esc(s.role)}</p>
+        
+        <section style="margin-bottom:3rem">
+          <h2 style="font-size:1.2rem; font-weight:800; color:#0f172a; margin-bottom:1rem; border-left:6px solid ${accent}; padding-left:1rem; text-transform:uppercase; letter-spacing:0.05em">Profile</h2>
+          <p style="font-size:0.875rem; line-height:1.7; color:#475569; text-align:justify">${esc(s.summary)}</p>
+        </section>
+
+        <section>
+          <h2 style="font-size:1.2rem; font-weight:800; color:#0f172a; margin-bottom:1.5rem; border-left:6px solid ${accent}; padding-left:1rem; text-transform:uppercase; letter-spacing:0.05em">Work Experience</h2>
+          ${s.experience.map(e => `
+            <div style="margin-bottom:2rem">
+              <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem">
+                <strong style="color:#0f172a">${esc(e.title)}</strong>
+                <span style="font-size:0.8rem; color:#64748b">${esc(e.duration)}</span>
+              </div>
+              <div style="color:${accent}; font-weight:600; font-size:0.85rem; margin-bottom:0.5rem">${esc(e.company)}</div>
+              <p style="font-size:0.85rem; color:#475569; line-height:1.6; text-align:justify">${esc(e.desc)}</p>
+            </div>
+          `).join('')}
+        </section>
+
+        ${s.activities.length ? `
+        <section>
+          <h2 style="font-size:1.2rem; font-weight:800; color:#0f172a; margin-bottom:1.5rem; border-left:6px solid ${accent}; padding-left:1rem; text-transform:uppercase; letter-spacing:0.05em">Activities</h2>
+          ${s.activities.map(a => `
+            <div style="margin-bottom:1.5rem">
+              <div style="font-weight:700; color:#0f172a">${esc(a.title)}</div>
+              <div style="font-size:0.85rem; color:#475569; margin-top:0.25rem; text-align:justify">${esc(a.desc)}</div>
+            </div>
+          `).join('')}
+        </section>` : ''}
+      </div>
+      ${side === 'right' ? renderCustomSidebar(s, accent) : ''}
+    </div>`;
+}
+
+function renderCustomSidebar(s, accent) {
+  return `
+    <div style="background:#f8fafc; border-${s.customSide === 'left' ? 'right' : 'left'}:1px solid #e2e8f0; padding: 3.5rem 1.5rem">
+      <section style="margin-bottom:2.5rem">
+        <h2 style="font-size:0.9rem; font-weight:800; text-transform:uppercase; color:#0f172a; margin-bottom:1.25rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.5rem">Contact Info</h2>
+        <div style="display:flex; flex-direction:column; gap:0.75rem">
+          ${s.phone ? `<div style="font-size:0.8rem; display:flex; align-items:center; gap:8px">${svgIcon('phone', accent, 14)} ${esc(s.phone)}</div>` : ''}
+          ${s.email ? `<div style="font-size:0.8rem; display:flex; align-items:center; gap:8px">${svgIcon('email', accent, 14)} ${esc(s.email)}</div>` : ''}
+          ${s.address ? `<div style="font-size:0.8rem; display:flex; align-items:center; gap:8px">${svgIcon('address', accent, 14)} ${esc(s.address)}</div>` : ''}
+          ${s.linkedin ? `<div style="font-size:0.8rem; display:flex; align-items:center; gap:8px">${svgIcon('linkedin', accent, 14)} LinkedIn Profile</div>` : ''}
+        </div>
+      </section>
+
+      <section style="margin-bottom:2.5rem">
+        <h2 style="font-size:0.9rem; font-weight:800; text-transform:uppercase; color:#0f172a; margin-bottom:1.25rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.5rem">Core Skills</h2>
+        ${s.skills.technical.map(sk => `
+          <div style="margin-bottom:12px">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:600; margin-bottom:4px">
+              <span>${esc(sk.name)}</span>
+              <span style="color:${accent}">${getSkillLevel(sk.pct)}</span>
+            </div>
+            <div style="height:6px; background:#e2e8f0; border-radius:3px">
+              <div style="height:100%; background:${accent}; border-radius:3px; width:${sk.pct}%"></div>
+            </div>
+          </div>
+        `).join('')}
+      </section>
+
+      <section style="margin-bottom:2.5rem">
+        <h2 style="font-size:0.9rem; font-weight:800; text-transform:uppercase; color:#0f172a; margin-bottom:1.25rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.5rem">Education</h2>
+        ${s.education.map(e => `
+          <div style="margin-bottom:1.5rem">
+            <div style="font-size:0.85rem; font-weight:700; color:#0f172a">${esc(e.level)}</div>
+            <div style="font-size:0.75rem; font-weight:700; color:${accent}">${esc(e.year)}</div>
+            <div style="font-size:0.75rem; color:#64748b; margin-top:2px">${esc(e.inst)}</div>
+          </div>
+        `).join('')}
+      </section>
+
+      ${s.languages.length ? `
+      <section style="margin-bottom:2.5rem">
+        <h2 style="font-size:0.9rem; font-weight:800; text-transform:uppercase; color:#0f172a; margin-bottom:1.25rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.5rem">Languages</h2>
+        <div style="display:flex; flex-wrap:wrap; gap:4px">
+          ${s.languages.map(l => `<span style="font-size:0.7rem; background:white; border:1px solid #e2e8f0; padding:2px 8px; border-radius:4px">${esc(l)}</span>`).join('')}
+        </div>
+      </section>` : ''}
+
+      ${(s.licenses.length || s.notice || s.salary || s.transport) ? `
+        <section style="margin-bottom:2.5rem">
+          <h2 style="font-size:0.9rem; font-weight:800; text-transform:uppercase; color:#0f172a; margin-bottom:1.25rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.5rem">Availability Info</h2>
+          <div style="display:flex; flex-direction:column; gap:8px">
+            ${s.licenses.length ? `<div style="font-size:0.75rem; color:#475569; display:flex; align-items:center; gap:6px">${svgIcon('license', accent, 14)} Licenses: ${esc(s.licenses.join(', '))}</div>` : ''}
+            ${s.notice ? `<div style="font-size:0.75rem; color:#475569; display:flex; align-items:center; gap:6px">${svgIcon('notice', accent, 14)} ${esc(s.notice)}</div>` : ''}
+            ${s.salary ? `<div style="font-size:0.75rem; color:#475569; display:flex; align-items:center; gap:6px">${svgIcon('salary', accent, 14)} Exp: ${esc(s.salary)}</div>` : ''}
+            ${s.transport ? `<div style="font-size:0.75rem; color:#475569; display:flex; align-items:center; gap:6px">${svgIcon('transport', accent, 14)} Own Transport</div>` : ''}
+          </div>
+        </section>
+      ` : ''}
+
+      ${s.references.length ? `
+        <section>
+          <h2 style="font-size:0.9rem; font-weight:800; text-transform:uppercase; color:#0f172a; margin-bottom:1.25rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.5rem">References</h2>
+          ${s.references.map(r => `
+            <div style="margin-bottom:12px">
+              <div style="font-size:0.8rem; font-weight:700; color:#0f172a">${esc(r.name)}</div>
+              <div style="font-size:0.7rem; color:#64748b">${esc(r.pos)} · ${esc(r.company)}</div>
+              <div style="font-size:0.7rem; color:${accent}">${esc(r.contact)}</div>
+            </div>
+          `).join('')}
+        </section>
+      ` : ''}
+    </div>`;
+}
+
+function getSkillLevel(pct) {
+  if (pct <= 50) return 'Easy';
+  if (pct <= 75) return 'Medium';
+  return 'Expert';
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function contactItem(iconName, text) {
+  return `<div class="cv-contact-item">${svgIcon(iconName)} <span>${esc(text)}</span></div>`;
+}
+
+function svgIcon(type, color = 'currentColor', size = 16) {
+  const icons = {
+    phone: `<path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>`,
+    email: `<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-8.97 5.7a1.94 1.94 0 01-2.06 0L2 7"/>`,
+    address: `<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>`,
+    linkedin: `<path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/>`,
+    license: `<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M10 9h1"/>`,
+    notice: `<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>`,
+    salary: `<path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>`,
+    transport: `<path d="M14 18V6a2 2 0 00-2-2H4a2 2 0 00-2 2v11a1 1 0 001 1h2"/><path d="M15 18H9"/><circle cx="7" cy="18" r="2"/><path d="M19 18h2a1 1 0 001-1v-4.24a1 1 0 00-.26-.7l-2.32-2.32a1 1 0 00-.71-.29h-3.41"/><circle cx="17" cy="18" r="2"/>`,
+    globe: `<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>`
+  };
+  return `<svg style="width:${size}px; height:${size}px; fill:none; stroke:${color}; stroke-width:1.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">${icons[type] || ''}</svg>`;
+}
+
+// ============================================================
+// EXPORT PDF
+// ============================================================
+async function exportPDF() {
+  const overlay = document.getElementById('exportOverlay');
+  overlay.classList.add('show');
+
+  try {
+    const canvas_el = document.getElementById('resume-canvas');
+    const { jsPDF } = window.jspdf;
+
+    await new Promise(r => setTimeout(r, 300));
+
+    const canvasImg = await html2canvas(canvas_el, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    });
+
+    const imgData = canvasImg.toDataURL('image/jpeg', 0.95);
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const pageW = 210;
+    const pageH = 297;
+    const imgW = pageW;
+    const imgH = (canvasImg.height * pageW) / canvasImg.width;
+
+    // Detect if content is significantly shorter than A4, use only needed height for 1st page
+    // but the canvas is fixed ratio, so we look at actual pixels or just stick to pageH loop accurately.
+    // Fixed: Detect empty whitespace at bottom to avoid extra pages
+    
+    if (imgH <= pageH + 2) { // 2mm buffer
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+    } else {
+      // Multi-page slicing
+      let yOffset = 0;
+      const totalH = imgH;
+      const ratio = canvasImg.width / pageW;
+
+      while (yOffset < totalH - 5) { // 5mm buffer to ignore tiny slivers
+        if (yOffset > 0) pdf.addPage();
+        
+        const remainingH = totalH - yOffset;
+        const sliceH = Math.min(pageH, remainingH);
+        
+        pdf.addImage(imgData, 'JPEG', 
+          0, -(yOffset * (canvasImg.height / totalH)), // Source Y offset in image pixels
+          imgW, imgH,                                  // Full image width/height scaling
+          undefined, 'FAST'
+        );
+        yOffset += pageH;
+      }
+    }
+
+    const filename = (state.name || 'resume').replace(/\s+/g, '_') + '_Resume.pdf';
+    pdf.save(filename);
+    showToast('✅ PDF exported successfully!');
+  } catch (err) {
+    console.error(err);
+    showToast('❌ Export failed. Please try again.');
+  }
+
+  overlay.classList.remove('show');
+}
+
+// ============================================================
+// LOCALSTORAGE
+// ============================================================
+function saveToLocalStorage() {
+  collectState();
+  try {
+    const save = {
+      state: state,
+      accentColor: state.accentColor,
+      timestamp: new Date().getTime()
+    };
+    localStorage.setItem('akafiq_resume_v3', JSON.stringify(save));
+    showToast('💾 Progress saved!');
+  } catch (e) {
+    showToast('⚠ Could not save (storage full)');
+  }
+}
+
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem('akafiq_resume_v3');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    const savedState = data.state;
+    if (!savedState) return;
+
+    if (data.accentColor) {
+      updateTheme(data.accentColor);
+      const picker = document.getElementById('accent-picker');
+      if (picker) picker.value = data.accentColor;
+    }
+
+    // Direct fields
+    const fields = ['name', 'role', 'phone', 'email', 'address', 'linkedin', 'summary', 'notice', 'salary'];
+    fields.forEach(k => {
+      const el = document.getElementById('f-' + k);
+      if (el) el.value = savedState[k] || '';
+    });
+
+    // Photo
+    if (savedState.photo) {
+      state.photo = savedState.photo;
+      const preview = document.getElementById('photoPreview');
+      if (preview) {
+        preview.src = savedState.photo;
+        preview.style.display = 'block';
+        document.getElementById('photoPlaceholder').style.display = 'none';
+      }
+    }
+
+    // Template
+    if (savedState.template) {
+      state.template = savedState.template;
+      const btn = document.querySelector(`.tpl-btn[onclick*="'${savedState.template}'"]`);
+      document.querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      document.getElementById('ats-notice').style.display = savedState.template === 'ats' ? 'block' : 'none';
+    }
+
+    // Dynamic Lists - Clear and Rebuild
+    document.getElementById('edu-list').innerHTML = '';
+    savedState.education.forEach(item => {
+      const id = eduCount++;
+      addEducation();
+      document.getElementById(`edu-level-${id}`).value = item.level;
+      document.getElementById(`edu-inst-${id}`).value = item.inst;
+      document.getElementById(`edu-field-${id}`).value = item.field;
+      document.getElementById(`edu-cgpa-${id}`).value = item.cgpa;
+      document.getElementById(`edu-year-${id}`).value = item.year;
+      document.getElementById(`edu-status-${id}`).value = item.status;
+    });
+
+    document.getElementById('exp-list').innerHTML = '';
+    savedState.experience.forEach(item => {
+      const id = expCount++;
+      addExperience();
+      document.getElementById(`exp-title-${id}`).value = item.title;
+      document.getElementById(`exp-company-${id}`).value = item.company;
+      document.getElementById(`exp-duration-${id}`).value = item.duration;
+      document.getElementById(`exp-loc-${id}`).value = item.loc;
+      document.getElementById(`exp-desc-${id}`).value = item.desc;
+    });
+
+    document.getElementById('act-list').innerHTML = '';
+    savedState.activities.forEach(item => {
+      const id = actCount++;
+      addActivity();
+      document.getElementById(`act-title-${id}`).value = item.title;
+      document.getElementById(`act-org-${id}`).value = item.org;
+      document.getElementById(`act-desc-${id}`).value = item.desc;
+    });
+
+    // Skills
+    ['technical', 'soft', 'tools'].forEach(cat => {
+      document.getElementById(`sk-${cat}-list`).innerHTML = '';
+      skillCounts[cat] = 0;
+      savedState.skills[cat].forEach(item => {
+        const id = skillCounts[cat]++;
+        addSkill(cat);
+        document.getElementById(`sk-${cat}-name-${id}`).value = item.name;
+        document.getElementById(`sk-${cat}-range-${id}`).value = item.pct;
+        document.getElementById(`sk-${cat}-pct-${id}`).textContent = item.pct + '%';
+      });
+    });
+
+    // Pills
+    savedState.licenses.forEach(val => {
+      const pill = [...document.querySelectorAll('#license-pills .check-pill')].find(p => p.querySelector('input').value === val);
+      if (pill) pill.classList.add('checked');
+    });
+    savedState.languages.forEach(val => {
+      const pill = [...document.querySelectorAll('#lang-pills .check-pill')].find(p => p.querySelector('input').value === val);
+      if (pill) pill.classList.add('checked');
+    });
+    if (savedState.transport) {
+      document.getElementById('own-transport-pill').classList.add('checked');
+    }
+
+    document.getElementById('ref-list').innerHTML = '';
+    savedState.references.forEach(item => {
+      const id = refCount++;
+      addReference();
+      document.getElementById(`ref-name-${id}`).value = item.name;
+      document.getElementById(`ref-pos-${id}`).value = item.pos;
+      document.getElementById(`ref-company-${id}`).value = item.company;
+      document.getElementById(`ref-contact-${id}`).value = item.contact;
+    });
+
+    state.customSide = savedState.customSide || 'right';
+    state.customWidth = savedState.customWidth || 33;
+    state.customPadding = savedState.customPadding || '3.5rem';
+
+    // Update UI controls for custom settings if they exist
+    const sideEl = document.getElementById('f-custom-side');
+    if (sideEl) sideEl.value = state.customSide;
+    const widthEl = document.getElementById('f-custom-width');
+    if (widthEl) widthEl.value = state.customWidth;
+    const padEl = document.getElementById('f-custom-padding');
+    if (padEl) padEl.value = state.customPadding;
+
+    Object.assign(state, savedState);
+  } catch (e) {
+    console.error("Load failed", e);
+  }
+}
+
+function clearData() {
+  if (!confirm('Clear all data? This cannot be undone.')) return;
+  localStorage.removeItem('akafiq_resume_v2');
+  location.reload();
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function adjustZoom(val) {
+  const canvas = document.getElementById('resume-canvas');
+  canvas.style.transform = `scale(${val})`;
+  canvas.style.transformOrigin = 'top center';
+}
+
+function updateSummaryCounter() {
+  const text = document.getElementById('f-summary').value;
+  document.getElementById('summary-counter').textContent = `${text.length} / 1000`;
+}
+
+function updateTheme(color) {
+  state.accentColor = color;
+  const root = document.documentElement;
+  root.style.setProperty('--accent', color);
+  
+  // Create a transparent version for backgrounds
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  root.style.setProperty('--accent-light', `rgba(${r},${g},${b},0.15)`);
+  
+  updatePreview();
+}
+
+function updateCompletionIndicators() {
+  const sections = ['personal', 'education', 'experience', 'activities', 'skills', 'extras', 'references'];
+  sections.forEach(s => {
+    const indicator = document.querySelector(`[onclick="toggleSection('${s}')"] .section-indicator`);
+    if (!indicator) return;
+    
+    let isComplete = false;
+    if (s === 'personal') isComplete = !!(state.name && state.email);
+    else if (s === 'education') isComplete = state.education.length > 0 && state.education[0].inst;
+    else if (s === 'experience') isComplete = state.experience.length > 0 && state.experience[0].company;
+    else if (s === 'activities') isComplete = state.activities.length > 0;
+    else if (s === 'skills') isComplete = state.skills.technical.length > 0;
+    else if (s === 'extras') isComplete = state.licenses.length > 0 || state.languages.length > 0;
+    else if (s === 'references') isComplete = state.references.length > 0;
+    
+    indicator.classList.toggle('active', isComplete);
+  });
+}
+
+// Init first render
+setTimeout(() => {
+  updatePreview();
+  updateSummaryCounter();
+}, 100);
+</script>
+  <footer style="margin-top:auto; padding:3rem 2rem; background:var(--slate-800); border-top:1px solid rgba(255,255,255,0.05); text-align:center;">
+    <div style="font-family:'Playfair Display', serif; font-size:1.2rem; color:var(--accent); margin-bottom:0.5rem">AKafiq Resume Engine</div>
+    <div style="font-size:0.75rem; color:var(--slate-400); font-family:'JetBrains Mono', monospace">Copyright Reserved &copy; AKafiq | Engineered for Professional Excellence</div>
+  </footer>
+</body>
+</html>
